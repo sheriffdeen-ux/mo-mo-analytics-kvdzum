@@ -248,16 +248,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { apiPost } = await import('@/utils/api');
       const response = await apiPost('/api/phone/send-otp', { phoneNumber });
       
+      console.log("[Auth] Send OTP response:", response);
+      
       // Check if the backend returned an error
       if (response.success === false) {
         // Provide user-friendly error messages
         let errorMessage = response.error || "Failed to send OTP";
         
+        console.error("[Auth] Backend returned error:", errorMessage);
+        
         if (errorMessage.includes("Too many OTP requests")) {
           errorMessage = "Too many OTP requests. Please wait 1 hour before trying again.";
         } else if (errorMessage.includes("Invalid Ghana phone number")) {
           errorMessage = "Please enter a valid Ghana phone number (e.g., 0241234567)";
-        } else if (errorMessage.includes("SMS service") || errorMessage.includes("SMS API")) {
+        } else if (errorMessage.includes("SMS service") || errorMessage.includes("SMS API") || errorMessage.includes("recipients field")) {
           errorMessage = "SMS service temporarily unavailable. Please try again in a few minutes.";
         } else if (errorMessage.includes("401") || errorMessage.includes("Missing key")) {
           errorMessage = "SMS service configuration error. Please contact support.";
