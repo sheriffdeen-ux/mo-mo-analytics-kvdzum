@@ -1,16 +1,17 @@
+
 {
   "expo": {
     "name": "MoMo Analytics",
     "slug": "MoMo Analytics",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon-tdb.png",
+    "icon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/app-icon-tdb.png",
+      "image": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
       "resizeMode": "contain",
-      "backgroundColor": "#000000"
+      "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
@@ -21,14 +22,14 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon-tdb.png",
-        "backgroundColor": "#000000"
+        "foregroundImage": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.anonymous.Natively"
     },
     "web": {
-      "favicon": "./assets/images/final_quest_240x240.png",
+      "favicon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
       "bundler": "metro"
     },
     "plugins": [
