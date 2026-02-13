@@ -19,8 +19,8 @@ export async function sendSMS(
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
     const payload = {
-      recipients: options.phoneNumber,
       sender: ARKESEL_SENDER_ID,
+      recipients: [options.phoneNumber],
       message: options.message,
     };
 
