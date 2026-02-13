@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { eq, and, gte, lte, desc, count as countFn, sum } from "drizzle-orm";
+import { eq, and, gte, lte, desc, count as countFn, sum, sql } from "drizzle-orm";
 import * as schema from "../db/schema.js";
 import type { App } from "../index.js";
 import { parseMoMoSMS } from "../utils/sms-parser.js";
@@ -496,34 +496,6 @@ export function registerTransactionRoutes(app: App, fastify: FastifyInstance) {
           .update(schema.transactions)
           .set({ isFraudReported: true })
           .where(eq(schema.transactions.id, id));
-
-        // Get user and update fraud count
-        const [user] = await app.db
-          .select()
-          .from(schema.userExtended)
-          .where(eq(schema.userExtended.userId, session.user.id));
-
-        if (user) {
-          // Increment fraud count and increase sensitivity
-          const newFraudCount = user.reportedFraudCount + 1;
-          let newSensitivity = parseFloat(user.alertSensitivity as any);
-          newSensitivity = Math.min(1.5, newSensitivity + 0.1); // Max 1.5
-
-          await app.db
-            .update(schema.userExtended)
-            .set({
-              reportedFraudCount: newFraudCount,
-              alertSensitivity: String(newSensitivity),
-            })
-            .where(eq(schema.userExtended.userId, session.user.id));
-
-          app.logger.info(
-            { userId: session.user.id, newSensitivity, fraudCount: newFraudCount },
-            "Fraud reported and sensitivity updated"
-          );
-
-          return { success: true, newSensitivity };
-        }
 
         app.logger.info(
           { userId: session.user.id, transactionId: id },

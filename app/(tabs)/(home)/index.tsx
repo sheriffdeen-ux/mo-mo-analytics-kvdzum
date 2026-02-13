@@ -206,11 +206,8 @@ export default function TransactionsScreen() {
     setActionLoading(true);
     try {
       const { authenticatedPost } = await import('@/utils/api');
-      const response = await authenticatedPost<{ success: boolean; newSensitivity: number }>(
-        `/api/transactions/${selectedTransaction.id}/report-fraud`,
-        {}
-      );
-      console.log('Fraud reported successfully, new sensitivity:', response.newSensitivity);
+      await authenticatedPost(`/api/transactions/${selectedTransaction.id}/report-fraud`, {});
+      console.log('Fraud reported successfully');
       
       // Update local state
       setTransactions(prev => 
@@ -222,30 +219,9 @@ export default function TransactionsScreen() {
       );
       
       setShowActionModal(false);
-      console.log('✅ Fraud reported! Alert sensitivity increased for better protection.');
+      console.log('✅ Fraud reported successfully! Our team will investigate.');
     } catch (error) {
       console.error('❌ Failed to report fraud:', error);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleConfirmSafe = async () => {
-    if (!selectedTransaction) return;
-    
-    setActionLoading(true);
-    try {
-      const { authenticatedPost } = await import('@/utils/api');
-      const response = await authenticatedPost<{ success: boolean; newSensitivity: number }>(
-        `/api/transactions/${selectedTransaction.id}/confirm-safe`,
-        {}
-      );
-      console.log('Transaction confirmed as safe, new sensitivity:', response.newSensitivity);
-      
-      setShowActionModal(false);
-      console.log('✅ Transaction confirmed as safe. Your AI is learning your patterns.');
-    } catch (error) {
-      console.error('❌ Failed to confirm safe:', error);
     } finally {
       setActionLoading(false);
     }
@@ -505,26 +481,6 @@ export default function TransactionsScreen() {
 
                 <View style={styles.modalActions}>
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.safeButton]}
-                    onPress={handleConfirmSafe}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <IconSymbol
-                          ios_icon_name="checkmark.circle.fill"
-                          android_material_icon_name="check-circle"
-                          size={20}
-                          color="#fff"
-                        />
-                        <Text style={styles.actionButtonText}>This is Safe</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
                     style={[styles.actionButton, styles.blockButton]}
                     onPress={handleBlockMerchant}
                     disabled={actionLoading}
@@ -565,10 +521,10 @@ export default function TransactionsScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.cancelButton]}
+                    style={[styles.actionButton, styles.okButton]}
                     onPress={() => setShowActionModal(false)}
                   >
-                    <Text style={[styles.actionButtonText, { color: textColor }]}>Cancel</Text>
+                    <Text style={[styles.actionButtonText, { color: textColor }]}>OK</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -806,16 +762,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  safeButton: {
-    backgroundColor: colors.success,
-  },
   blockButton: {
     backgroundColor: colors.warning,
   },
   reportButton: {
     backgroundColor: colors.error,
   },
-  cancelButton: {
+  okButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: colors.border,
