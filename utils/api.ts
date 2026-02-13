@@ -2,7 +2,10 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import { BEARER_TOKEN_KEY } from "@/lib/auth";
+import { BEARER_TOKEN_KEY, setBearerToken as setToken } from "@/lib/auth";
+
+// Re-export setBearerToken for convenience
+export { setToken as setBearerToken };
 
 /**
  * Backend URL is configured in app.json under expo.extra.backendUrl
