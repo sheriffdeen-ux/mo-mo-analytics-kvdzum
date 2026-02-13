@@ -216,13 +216,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Check if the backend returned an error
       if (response.success === false) {
-        throw new Error(response.error || "Failed to send OTP");
+        // Provide user-friendly error messages
+        let errorMessage = response.error || "Failed to send OTP";
+        
+        if (errorMessage.includes("Too many OTP requests")) {
+          errorMessage = "Too many OTP requests. Please wait 1 hour before trying again.";
+        } else if (errorMessage.includes("Invalid Ghana phone number")) {
+          errorMessage = "Please enter a valid Ghana phone number (e.g., 0241234567)";
+        } else if (errorMessage.includes("SMS service") || errorMessage.includes("SMS API")) {
+          errorMessage = "SMS service temporarily unavailable. Please try again in a few minutes.";
+        } else if (errorMessage.includes("401") || errorMessage.includes("Missing key")) {
+          errorMessage = "SMS service configuration error. Please contact support.";
+        }
+        
+        throw new Error(errorMessage);
       }
       
       console.log("[Auth] OTP sent successfully");
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Auth] Failed to send OTP:", error);
-      throw error;
+      // Re-throw with the error message
+      throw new Error(error.message || "Failed to send OTP. Please try again.");
     }
   };
 
@@ -239,12 +253,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Check if the backend returned an error
       if (response.success === false) {
-        throw new Error(response.error || "Invalid OTP code");
+        // Provide user-friendly error messages
+        let errorMessage = response.error || "Invalid OTP code";
+        
+        if (errorMessage.includes("OTP not found") || errorMessage.includes("expired")) {
+          errorMessage = "OTP has expired. Please request a new one.";
+        } else if (errorMessage.includes("Maximum OTP attempts")) {
+          errorMessage = "Too many incorrect attempts. Please request a new OTP.";
+        } else if (errorMessage.includes("Invalid OTP")) {
+          errorMessage = "Incorrect OTP code. Please check and try again.";
+        } else if (errorMessage.includes("Full name required")) {
+          errorMessage = "Please enter your full name to continue.";
+        }
+        
+        throw new Error(errorMessage);
       }
       
       // Store the access token
-      if (response.accessToken) {
-        await setBearerToken(response.accessToken);
+      if (response.accessToken || response.authToken) {
+        const token = response.accessToken || response.authToken;
+        await setBearerToken(token);
         console.log("[Auth] Access token stored successfully");
       } else {
         console.warn("[Auth] No access token received from backend");
@@ -262,9 +290,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await registerDeviceWithBackend();
       
       console.log("[Auth] OTP verified successfully, user logged in");
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Auth] OTP verification failed:", error);
-      throw error;
+      // Re-throw with the error message
+      throw new Error(error.message || "Failed to verify OTP. Please try again.");
     }
   };
 
