@@ -37,6 +37,7 @@ export default function AuthScreen() {
   const [otpSent, setOtpSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [deviceFingerprint, setDeviceFingerprint] = useState("");
+  const [devModeOtp, setDevModeOtp] = useState<string | null>(null);
 
   useEffect(() => {
     generateDeviceFingerprint();
@@ -118,6 +119,14 @@ export default function AuthScreen() {
       
       if (response.success === false) {
         throw new Error(response.error || "Failed to send OTP");
+      }
+      
+      // Check if backend returned OTP code (development mode only)
+      if (response.otpCode) {
+        setDevModeOtp(response.otpCode);
+        console.log("🔓 [DEV MODE] OTP code received from backend:", response.otpCode);
+      } else {
+        setDevModeOtp(null);
       }
       
       setOtpSent(true);
@@ -231,6 +240,14 @@ export default function AuthScreen() {
         throw new Error(response.error || "Failed to resend OTP");
       }
       
+      // Check if backend returned OTP code (development mode only)
+      if (response.otpCode) {
+        setDevModeOtp(response.otpCode);
+        console.log("🔓 [DEV MODE] OTP code received from backend:", response.otpCode);
+      } else {
+        setDevModeOtp(null);
+      }
+      
       setSuccessMessage("New OTP sent! Please check your email inbox.");
       setCountdown(60);
       
@@ -298,6 +315,17 @@ export default function AuthScreen() {
           {successMessage ? (
             <View style={styles.successContainer}>
               <Text style={styles.successText}>{successMessage}</Text>
+            </View>
+          ) : null}
+
+          {devModeOtp ? (
+            <View style={styles.devModeContainer}>
+              <Text style={styles.devModeTitle}>🔓 Development Mode</Text>
+              <Text style={styles.devModeText}>Your OTP code is:</Text>
+              <Text style={styles.devModeOtp}>{devModeOtp}</Text>
+              <Text style={styles.devModeNote}>
+                (This is only shown in preview mode. In production, you'll receive the OTP via email only.)
+              </Text>
             </View>
           ) : null}
 
@@ -462,6 +490,42 @@ const styles = StyleSheet.create({
     color: "#2e7d32",
     fontSize: 14,
     textAlign: "center",
+  },
+  devModeContainer: {
+    backgroundColor: "#fff3cd",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "#ffc107",
+  },
+  devModeTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#856404",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  devModeText: {
+    fontSize: 14,
+    color: "#856404",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  devModeOtp: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#856404",
+    textAlign: "center",
+    letterSpacing: 8,
+    marginVertical: 8,
+  },
+  devModeNote: {
+    fontSize: 12,
+    color: "#856404",
+    textAlign: "center",
+    marginTop: 8,
+    fontStyle: "italic",
   },
   input: {
     height: 50,
