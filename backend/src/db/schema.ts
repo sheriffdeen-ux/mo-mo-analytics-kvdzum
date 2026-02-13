@@ -14,8 +14,12 @@ import { relations } from "drizzle-orm";
 // Extend user table with additional fields
 export const userExtended = pgTable("user_extended", {
   userId: text("user_id").primaryKey(),
-  fullName: text("full_name").notNull(),
-  phoneNumber: text("phone_number").notNull().unique(),
+  fullName: text("full_name"),
+  businessName: text("business_name"),
+  phoneNumber: text("phone_number"), // Manual entry by user
+  deviceFingerprint: text("device_fingerprint"),
+  lastLoginDevice: text("last_login_device"),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   subscriptionStatus: text("subscription_status", {
     enum: ["free", "trial", "pro", "business"],
   })
@@ -28,6 +32,10 @@ export const userExtended = pgTable("user_extended", {
     .notNull(),
   confirmedSafeCount: integer("confirmed_safe_count").default(0),
   reportedFraudCount: integer("reported_fraud_count").default(0),
+  smsConsentGiven: boolean("sms_consent_given").default(false),
+  smsAutoDetectionEnabled: boolean("sms_auto_detection_enabled").default(false),
+  pin: text("pin"), // Hashed PIN for new device verification
+  requiresPinOnNewDevice: boolean("requires_pin_on_new_device").default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -213,6 +221,77 @@ export const deviceRegistrations = pgTable(
   ]
 );
 
+// Device trust log table - tracks device trust levels and behavioral verification
+export const deviceTrustLog = pgTable(
+  "device_trust_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    deviceFingerprint: text("device_fingerprint").notNull(),
+    trustLevel: text("trust_level", {
+      enum: ["trusted", "suspicious", "blocked"],
+    })
+      .default("suspicious")
+      .notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    loginAttempts: integer("login_attempts").default(0),
+    smsVerificationCount: integer("sms_verification_count").default(0),
+    transactionPatternScore: decimal("transaction_pattern_score", {
+      precision: 5,
+      scale: 2,
+    })
+      .default("0"),
+  },
+  (table) => [
+    index("idx_device_trust_log_user_id").on(table.userId),
+    index("idx_device_trust_log_device_fp").on(table.deviceFingerprint),
+  ]
+);
+
+// SMS scan log table - logs SMS scanning activity for transparency
+export const smsScanLog = pgTable(
+  "sms_scan_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    deviceFingerprint: text("device_fingerprint").notNull(),
+    smsCount: integer("sms_count").notNull(),
+    momoSmsCount: integer("momo_sms_count").notNull(),
+    scannedAt: timestamp("scanned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_sms_scan_log_user_id").on(table.userId),
+    index("idx_sms_scan_log_scanned_at").on(table.scannedAt),
+  ]
+);
+
+// Audit log table - comprehensive audit trail for security events
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id"),
+    action: text("action").notNull(),
+    details: jsonb("details").$type<Record<string, any>>(),
+    ipAddress: text("ip_address"),
+    deviceFingerprint: text("device_fingerprint"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_audit_log_user_id").on(table.userId),
+    index("idx_audit_log_created_at").on(table.createdAt),
+  ]
+);
+
 // Relations for transactions
 export const transactionsRelations = relations(transactions, ({ one }) => ({
   user: one({
@@ -266,5 +345,38 @@ export const paymentTransactionsRelations = relations(
       fields: [paymentTransactions.subscriptionId],
       references: [subscriptions.id],
     }),
+  })
+);
+
+// Relations for device trust log
+export const deviceTrustLogRelations = relations(
+  deviceTrustLog,
+  ({ one }) => ({
+    user: one({
+      fields: [deviceTrustLog.userId],
+      references: ["id"],
+    } as any),
+  })
+);
+
+// Relations for SMS scan log
+export const smsScanLogRelations = relations(
+  smsScanLog,
+  ({ one }) => ({
+    user: one({
+      fields: [smsScanLog.userId],
+      references: ["id"],
+    } as any),
+  })
+);
+
+// Relations for audit log
+export const auditLogRelations = relations(
+  auditLog,
+  ({ one }) => ({
+    user: one({
+      fields: [auditLog.userId],
+      references: ["id"],
+    } as any),
   })
 );
