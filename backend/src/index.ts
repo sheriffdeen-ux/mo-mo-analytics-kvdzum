@@ -16,6 +16,7 @@ import { registerLegalRoutes } from './routes/legal.js';
 import { registerSecurityRoutes } from './routes/security.js';
 import { registerDeviceTrustRoutes } from './routes/device-trust.js';
 import { registerEmailAuthRoutes } from './routes/email-auth.js';
+import { registerEmailVerificationRoutes } from './routes/email-verification.js';
 
 // Combine schemas
 const schema = { ...appSchema, ...authSchema };
@@ -43,6 +44,7 @@ registerLegalRoutes(app, app.fastify);
 registerSecurityRoutes(app, app.fastify);
 registerDeviceTrustRoutes(app, app.fastify);
 registerEmailAuthRoutes(app, app.fastify);
+registerEmailVerificationRoutes(app, app.fastify);
 
 await app.run();
 app.logger.info('MoMo Analytics application running');
