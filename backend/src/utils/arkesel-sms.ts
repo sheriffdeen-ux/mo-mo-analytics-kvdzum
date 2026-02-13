@@ -4,6 +4,7 @@
 
 const ARKESEL_API_URL = "https://sms.arkesel.com/api/v2/sms/send";
 const ARKESEL_API_KEY = "TkpKcE5QQ09PREN1dFBOWUV1eGQ";
+const ARKESEL_SENDER_ID = "SMSAlert";
 
 export interface SendSMSOptions {
   phoneNumber: string;
@@ -19,7 +20,7 @@ export async function sendSMS(
   try {
     const payload = {
       recipient: options.phoneNumber,
-      sender: "MoMo Alert",
+      sender: ARKESEL_SENDER_ID,
       message: options.message,
     };
 
