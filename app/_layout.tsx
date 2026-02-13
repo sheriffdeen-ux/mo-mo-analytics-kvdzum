@@ -44,11 +44,15 @@ function RootLayoutContent() {
 
   // Auth guard: redirect to auth screen if not logged in
   React.useEffect(() => {
-    if (!loading && !user) {
-      console.log("[Auth Guard] No user found, redirecting to auth");
-      router.replace("/auth");
+    if (!loading) {
+      if (!user) {
+        console.log("[Auth Guard] No user found, redirecting to auth");
+        router.replace("/auth");
+      } else {
+        console.log("[Auth Guard] User authenticated:", user.phoneNumber || user.email);
+      }
     }
-  }, [user, loading]);
+  }, [user, loading, router]);
 
   const CustomDefaultTheme: Theme = {
     ...DefaultTheme,

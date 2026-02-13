@@ -45,14 +45,25 @@ export default function AuthScreen() {
   }
 
   const formatPhoneNumber = (text: string) => {
+    // Remove all non-digit characters
     const cleaned = text.replace(/\D/g, "");
+    
+    // Handle different input formats
     if (cleaned.startsWith("233")) {
+      // Already has country code (233...)
       return `+${cleaned}`;
     } else if (cleaned.startsWith("0")) {
+      // Local format (0241234567) -> +233241234567
       return `+233${cleaned.substring(1)}`;
+    } else if (cleaned.length === 9) {
+      // Missing leading 0 (241234567) -> +233241234567
+      return `+233${cleaned}`;
     } else if (cleaned.length > 0) {
+      // Fallback: assume it needs country code
       return `+233${cleaned}`;
     }
+    
+    // Return original if empty
     return text;
   };
 
@@ -68,8 +79,18 @@ export default function AuthScreen() {
     }
 
     const formattedPhone = formatPhoneNumber(phoneNumber);
-    if (formattedPhone.length < 13) {
-      setError("Please enter a valid Ghana phone number (e.g., 0241234567)");
+    // Ghana phone numbers: +233 + 9 digits = 13 characters total
+    // Valid formats: +233241234567, +233501234567, etc.
+    if (formattedPhone.length !== 13 || !formattedPhone.startsWith('+233')) {
+      setError("Please enter a valid Ghana phone number (e.g., 0241234567 or 0501234567)");
+      return;
+    }
+    
+    // Validate the network prefix (second digit after +233)
+    const networkPrefix = formattedPhone.substring(4, 6);
+    const validPrefixes = ['24', '25', '26', '27', '28', '50', '54', '55', '56', '57', '59', '20', '23'];
+    if (!validPrefixes.includes(networkPrefix)) {
+      setError("Please enter a valid Ghana mobile number (MTN, Vodafone, or AirtelTigo)");
       return;
     }
 
@@ -98,7 +119,19 @@ export default function AuthScreen() {
       console.log("✅ OTP sent successfully to", formattedPhone);
     } catch (err: any) {
       console.error("❌ Failed to send OTP:", err);
-      const errorMessage = err.message || "Failed to send OTP. Please check your phone number and try again.";
+      // Extract error message from various error formats
+      let errorMessage = "Failed to send OTP. Please check your phone number and try again.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err?.error) {
+        errorMessage = err.error;
+      } else if (err?.toString && err.toString() !== '[object Object]') {
+        errorMessage = err.toString();
+      }
+      
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -129,7 +162,19 @@ export default function AuthScreen() {
       router.replace("/(tabs)/(home)/");
     } catch (err: any) {
       console.error("❌ OTP verification failed:", err);
-      const errorMessage = err.message || "Invalid OTP code. Please check and try again.";
+      // Extract error message from various error formats
+      let errorMessage = "Invalid OTP code. Please check and try again.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err?.error) {
+        errorMessage = err.error;
+      } else if (err?.toString && err.toString() !== '[object Object]') {
+        errorMessage = err.toString();
+      }
+      
       setError(errorMessage);
       setOtpCode("");
     } finally {
@@ -165,7 +210,19 @@ export default function AuthScreen() {
       console.log("✅ OTP resent successfully to", formattedPhone);
     } catch (err: any) {
       console.error("❌ Failed to resend OTP:", err);
-      const errorMessage = err.message || "Failed to resend OTP. Please try again.";
+      // Extract error message from various error formats
+      let errorMessage = "Failed to resend OTP. Please try again.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      } else if (err?.error) {
+        errorMessage = err.error;
+      } else if (err?.toString && err.toString() !== '[object Object]') {
+        errorMessage = err.toString();
+      }
+      
       setError(errorMessage);
     } finally {
       setLoading(false);

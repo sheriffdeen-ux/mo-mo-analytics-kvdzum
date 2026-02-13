@@ -117,15 +117,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userData = await authenticatedGet('/api/user/me');
           if (userData) {
             setUser(userData as User);
-            console.log("[Auth] User fetched successfully via bearer token");
+            console.log("[Auth] User fetched successfully via bearer token:", userData);
             // Register device after successful authentication
-            await registerDeviceWithBackend();
+            try {
+              await registerDeviceWithBackend();
+            } catch (deviceError) {
+              console.warn("[Auth] Device registration failed (non-critical):", deviceError);
+            }
             return;
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error("[Auth] Failed to fetch user with bearer token:", error);
-          // Token might be invalid, clear it
-          await clearAuthTokens();
+          // Only clear token if it's a 401 (unauthorized) error
+          if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+            console.log("[Auth] Token is invalid (401), clearing auth tokens");
+            await clearAuthTokens();
+          } else {
+            console.log("[Auth] Network or other error, keeping token for retry");
+          }
         }
       }
       
@@ -138,7 +147,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (session.data.session?.token) {
             await setBearerToken(session.data.session.token);
             // Register device after successful authentication
-            await registerDeviceWithBackend();
+            try {
+              await registerDeviceWithBackend();
+            } catch (deviceError) {
+              console.warn("[Auth] Device registration failed (non-critical):", deviceError);
+            }
           }
           console.log("[Auth] User fetched successfully via Better Auth session");
           return;
@@ -149,12 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       // No valid session found
+      console.log("[Auth] No valid session found, user is not authenticated");
       setUser(null);
-      await clearAuthTokens();
+      // Don't clear tokens here - we might just have a network issue
     } catch (error) {
       console.error("[Auth] Failed to fetch user:", error);
       setUser(null);
-      await clearAuthTokens();
+      // Don't clear tokens on general errors - might be network issues
     } finally {
       setLoading(false);
     }
@@ -261,7 +275,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           errorMessage = "Too many OTP requests. Please wait 1 hour before trying again.";
         } else if (errorMessage.includes("Invalid Ghana phone number")) {
           errorMessage = "Please enter a valid Ghana phone number (e.g., 0241234567)";
-        } else if (errorMessage.includes("SMS service") || errorMessage.includes("SMS API") || errorMessage.includes("recipients field")) {
+        } else if (errorMessage.includes("SMS service") || errorMessage.includes("SMS API") || errorMessage.includes("recipients") || errorMessage.includes("array")) {
           errorMessage = "SMS service temporarily unavailable. Please try again in a few minutes.";
         } else if (errorMessage.includes("401") || errorMessage.includes("Missing key")) {
           errorMessage = "SMS service configuration error. Please contact support.";
@@ -273,8 +287,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[Auth] OTP sent successfully");
     } catch (error: any) {
       console.error("[Auth] Failed to send OTP:", error);
-      // Re-throw with the error message
-      throw new Error(error.message || "Failed to send OTP. Please try again.");
+      // Ensure we always have a message
+      const errorMessage = error?.message || error?.toString() || "Failed to send OTP. Please try again.";
+      throw new Error(errorMessage);
     }
   };
 
@@ -288,6 +303,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName,
         deviceId: deviceId || 'unknown-device',
       });
+      
+      console.log("[Auth] Verify OTP response:", response);
       
       // Check if the backend returned an error
       if (response.success === false) {
@@ -311,6 +328,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
         console.log("[Auth] JWT access token stored successfully");
+      } else if (response.token) {
+        // Fallback: some backends might return 'token' instead of 'accessToken'
+        await setBearerToken(response.token);
+        console.log("[Auth] JWT token stored successfully (from 'token' field)");
       } else {
         console.warn("[Auth] No access token received from backend");
         throw new Error("Authentication failed: No access token received");
@@ -321,7 +342,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(response.user);
         console.log("[Auth] User data set:", response.user);
       } else {
-        console.warn("[Auth] No user data received from backend");
+        console.warn("[Auth] No user data received from backend, will fetch from /api/user/me");
+        // Try to fetch user data from /api/user/me
+        try {
+          const { authenticatedGet } = await import('@/utils/api');
+          const userData = await authenticatedGet('/api/user/me');
+          if (userData) {
+            setUser(userData as User);
+            console.log("[Auth] User data fetched from /api/user/me:", userData);
+          }
+        } catch (fetchError) {
+          console.error("[Auth] Failed to fetch user data:", fetchError);
+          // Don't throw - we have the token, user can still proceed
+        }
       }
       
       // Register device with backend
@@ -330,8 +363,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[Auth] OTP verified successfully, user logged in");
     } catch (error: any) {
       console.error("[Auth] OTP verification failed:", error);
-      // Re-throw with the error message
-      throw new Error(error.message || "Failed to verify OTP. Please try again.");
+      // Ensure we always have a message
+      const errorMessage = error?.message || error?.toString() || "Failed to verify OTP. Please try again.";
+      throw new Error(errorMessage);
     }
   };
 
