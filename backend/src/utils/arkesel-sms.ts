@@ -3,7 +3,7 @@
  */
 
 const ARKESEL_API_URL = "https://sms.arkesel.com/api/v2/sms/send";
-const ARKESEL_API_KEY = "TkpKcE5QQ09JREN1dFBOWUV1eGQ";
+const ARKESEL_API_KEY = "TkpKcE5QQ09PREN1dFBOWUV1eGQ";
 
 export interface SendSMSOptions {
   phoneNumber: string;
