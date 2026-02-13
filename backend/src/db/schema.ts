@@ -11,6 +11,120 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+// Extend user table with additional fields
+export const userExtended = pgTable("user_extended", {
+  userId: text("user_id").primaryKey(),
+  fullName: text("full_name").notNull(),
+  phoneNumber: text("phone_number").notNull().unique(),
+  subscriptionStatus: text("subscription_status", {
+    enum: ["free", "trial", "pro", "business"],
+  })
+    .default("trial")
+    .notNull(),
+  trialEndDate: timestamp("trial_end_date", { withTimezone: true }),
+  currentPlanId: text("current_plan_id"),
+  alertSensitivity: decimal("alert_sensitivity", { precision: 3, scale: 2 })
+    .default("1.0")
+    .notNull(),
+  confirmedSafeCount: integer("confirmed_safe_count").default(0),
+  reportedFraudCount: integer("reported_fraud_count").default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+// Subscriptions table
+export const subscriptions = pgTable(
+  "subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    planId: text("plan_id", {
+      enum: [
+        "free",
+        "pro_weekly",
+        "pro_monthly",
+        "pro_yearly",
+        "business_weekly",
+        "business_monthly",
+      ],
+    }).notNull(),
+    status: text("status", {
+      enum: ["active", "cancelled", "expired"],
+    })
+      .default("active")
+      .notNull(),
+    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+    endDate: timestamp("end_date", { withTimezone: true }).notNull(),
+    amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+    currency: text("currency").default("GHS"),
+    paystackReference: text("paystack_reference").unique(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("idx_subscriptions_user_id").on(table.userId),
+    index("idx_subscriptions_status").on(table.status),
+  ]
+);
+
+// OTP Verifications table
+export const otpVerifications = pgTable(
+  "otp_verifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    phoneNumber: text("phone_number").notNull(),
+    otpCode: text("otp_code").notNull(), // hashed
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verified: boolean("verified").default(false),
+    attempts: integer("attempts").default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_otp_verifications_phone").on(table.phoneNumber),
+    index("idx_otp_verifications_expires_at").on(table.expiresAt),
+  ]
+);
+
+// Payment Transactions table
+export const paymentTransactions = pgTable(
+  "payment_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    subscriptionId: uuid("subscription_id"),
+    amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+    currency: text("currency").default("GHS"),
+    paystackReference: text("paystack_reference").notNull().unique(),
+    status: text("status", {
+      enum: ["pending", "success", "failed"],
+    })
+      .default("pending")
+      .notNull(),
+    metadata: jsonb("metadata").$type<Record<string, any>>(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_payment_transactions_user_id").on(table.userId),
+    index("idx_payment_transactions_paystack_ref").on(
+      table.paystackReference
+    ),
+  ]
+);
+
 // Transactions table - stores all MoMo transactions
 export const transactions = pgTable(
   "transactions",
@@ -62,6 +176,14 @@ export const userSettings = pgTable(
     trustedMerchants: jsonb("trusted_merchants").$type<string[]>().default(
       []
     ),
+    smsReadPreference: text("sms_read_preference", {
+      enum: ["all", "momo_only"],
+    })
+      .default("momo_only")
+      .notNull(),
+    notificationPreferences: jsonb("notification_preferences")
+      .$type<Record<string, any>>()
+      .default({}),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -117,3 +239,32 @@ export const userSettingsRelations = relations(userSettings, ({ one }) => ({
     references: ["id"],
   } as any),
 }));
+
+// Relations for user extended
+export const userExtendedRelations = relations(userExtended, ({ one, many }) => ({
+  subscriptions: many(subscriptions),
+  paymentTransactions: many(paymentTransactions),
+}));
+
+// Relations for subscriptions
+export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
+  user: one(userExtended, {
+    fields: [subscriptions.userId],
+    references: [userExtended.userId],
+  }),
+}));
+
+// Relations for payment transactions
+export const paymentTransactionsRelations = relations(
+  paymentTransactions,
+  ({ one }) => ({
+    user: one(userExtended, {
+      fields: [paymentTransactions.userId],
+      references: [userExtended.userId],
+    }),
+    subscription: one(subscriptions, {
+      fields: [paymentTransactions.subscriptionId],
+      references: [subscriptions.id],
+    }),
+  })
+);

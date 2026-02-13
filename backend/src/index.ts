@@ -8,6 +8,10 @@ import { registerSettingsRoutes } from './routes/settings.js';
 import { registerAnalyticsRoutes } from './routes/analytics.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerHealthRoutes } from './routes/health.js';
+import { registerAuthRoutes } from './routes/auth.js';
+import { registerSubscriptionRoutes } from './routes/subscriptions.js';
+import { registerAlertRoutes } from './routes/alerts.js';
+import { registerLegalRoutes } from './routes/legal.js';
 
 // Combine schemas
 const schema = { ...appSchema, ...authSchema };
@@ -23,10 +27,14 @@ app.withAuth();
 
 // Register all routes
 registerHealthRoutes(app, app.fastify);
+registerAuthRoutes(app, app.fastify);
+registerSubscriptionRoutes(app, app.fastify);
 registerTransactionRoutes(app, app.fastify);
 registerSettingsRoutes(app, app.fastify);
 registerAnalyticsRoutes(app, app.fastify);
 registerAdminRoutes(app, app.fastify);
+registerAlertRoutes(app, app.fastify);
+registerLegalRoutes(app, app.fastify);
 
 await app.run();
 app.logger.info('MoMo Analytics application running');
