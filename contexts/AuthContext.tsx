@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
@@ -211,7 +212,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.log("[Auth] Sending OTP to phone:", phoneNumber);
       const { apiPost } = await import('@/utils/api');
-      await apiPost('/api/phone/send-otp', { phoneNumber });
+      const response = await apiPost('/api/phone/send-otp', { phoneNumber });
+      
+      // Check if the backend returned an error
+      if (response.success === false) {
+        throw new Error(response.error || "Failed to send OTP");
+      }
+      
       console.log("[Auth] OTP sent successfully");
     } catch (error) {
       console.error("[Auth] Failed to send OTP:", error);
@@ -230,14 +237,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deviceId: deviceId || 'unknown-device',
       });
       
+      // Check if the backend returned an error
+      if (response.success === false) {
+        throw new Error(response.error || "Invalid OTP code");
+      }
+      
       // Store the access token
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
+        console.log("[Auth] Access token stored successfully");
+      } else {
+        console.warn("[Auth] No access token received from backend");
       }
       
       // Set user from response
       if (response.user) {
         setUser(response.user);
+        console.log("[Auth] User data set:", response.user);
+      } else {
+        console.warn("[Auth] No user data received from backend");
       }
       
       // Register device with backend

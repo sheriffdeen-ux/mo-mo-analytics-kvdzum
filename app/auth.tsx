@@ -32,6 +32,7 @@ export default function AuthScreen() {
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
 
@@ -56,6 +57,11 @@ export default function AuthScreen() {
   };
 
   const handleSendOTP = async () => {
+    if (!fullName || fullName.trim().length < 2) {
+      setError("Please enter your full name");
+      return;
+    }
+
     if (!phoneNumber) {
       setError("Please enter your phone number");
       return;
@@ -63,18 +69,20 @@ export default function AuthScreen() {
 
     const formattedPhone = formatPhoneNumber(phoneNumber);
     if (formattedPhone.length < 13) {
-      setError("Please enter a valid Ghana phone number");
+      setError("Please enter a valid Ghana phone number (e.g., 0241234567)");
       return;
     }
 
     setLoading(true);
     setError("");
+    setSuccessMessage("");
     console.log("[Auth] Sending OTP to:", formattedPhone);
 
     try {
       await signInWithPhone(formattedPhone);
       setOtpSent(true);
       setMode("otp");
+      setSuccessMessage(`OTP sent to ${formattedPhone}. Please check your SMS.`);
       setCountdown(60);
       
       const timer = setInterval(() => {
@@ -87,10 +95,11 @@ export default function AuthScreen() {
         });
       }, 1000);
 
-      console.log("✅ OTP sent successfully");
+      console.log("✅ OTP sent successfully to", formattedPhone);
     } catch (err: any) {
       console.error("❌ Failed to send OTP:", err);
-      setError(err.message || "Failed to send OTP. Please try again.");
+      const errorMessage = err.message || "Failed to send OTP. Please check your phone number and try again.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -98,7 +107,12 @@ export default function AuthScreen() {
 
   const handleVerifyOTP = async () => {
     if (!otpCode || otpCode.length !== 6) {
-      setError("Please enter the 6-digit OTP code");
+      setError("Please enter the complete 6-digit OTP code");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otpCode)) {
+      setError("OTP code must contain only numbers");
       return;
     }
 
@@ -111,11 +125,13 @@ export default function AuthScreen() {
       const formattedPhone = formatPhoneNumber(phoneNumber);
       
       await verifyOTP(formattedPhone, otpCode, fullName || undefined, deviceId);
-      console.log("✅ OTP verified successfully, redirecting...");
+      console.log("✅ OTP verified successfully, redirecting to home...");
       router.replace("/(tabs)/(home)/");
     } catch (err: any) {
       console.error("❌ OTP verification failed:", err);
-      setError(err.message || "Invalid OTP code. Please try again.");
+      const errorMessage = err.message || "Invalid OTP code. Please check and try again.";
+      setError(errorMessage);
+      setOtpCode("");
     } finally {
       setLoading(false);
     }
@@ -126,11 +142,14 @@ export default function AuthScreen() {
     
     setLoading(true);
     setError("");
+    setSuccessMessage("");
+    setOtpCode("");
     console.log("[Auth] Resending OTP to:", phoneNumber);
 
     try {
       const formattedPhone = formatPhoneNumber(phoneNumber);
       await signInWithPhone(formattedPhone);
+      setSuccessMessage("New OTP sent! Please check your SMS.");
       setCountdown(60);
       
       const timer = setInterval(() => {
@@ -143,10 +162,11 @@ export default function AuthScreen() {
         });
       }, 1000);
 
-      console.log("✅ OTP resent successfully");
+      console.log("✅ OTP resent successfully to", formattedPhone);
     } catch (err: any) {
       console.error("❌ Failed to resend OTP:", err);
-      setError(err.message || "Failed to resend OTP. Please try again.");
+      const errorMessage = err.message || "Failed to resend OTP. Please try again.";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -182,6 +202,12 @@ export default function AuthScreen() {
           {error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {successMessage ? (
+            <View style={styles.successContainer}>
+              <Text style={styles.successText}>{successMessage}</Text>
             </View>
           ) : null}
 
@@ -321,6 +347,17 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: "#c00",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  successContainer: {
+    backgroundColor: "#e8f5e9",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  successText: {
+    color: "#2e7d32",
     fontSize: 14,
     textAlign: "center",
   },
