@@ -259,7 +259,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithPhone = async (phoneNumber: string) => {
     try {
       console.log("[Auth] Sending OTP to phone:", phoneNumber);
-      const { apiPost } = await import('@/utils/api');
+      const { apiPost, BACKEND_URL, isBackendConfigured } = await import('@/utils/api');
+      
+      // Check if backend is configured
+      if (!isBackendConfigured()) {
+        const errorMsg = "Backend is not configured. Please check your app configuration.";
+        console.error("[Auth]", errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      console.log("[Auth] Backend URL:", BACKEND_URL);
+      console.log("[Auth] Calling POST /api/phone/send-otp with phoneNumber:", phoneNumber);
+      
       const response = await apiPost('/api/phone/send-otp', { phoneNumber });
       
       console.log("[Auth] Send OTP response:", response);
@@ -287,8 +298,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[Auth] OTP sent successfully");
     } catch (error: any) {
       console.error("[Auth] Failed to send OTP:", error);
+      console.error("[Auth] Error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        cause: error?.cause,
+      });
+      
       // Ensure we always have a message
-      const errorMessage = error?.message || error?.toString() || "Failed to send OTP. Please try again.";
+      let errorMessage = "Failed to send OTP. Please try again.";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.toString && error.toString() !== '[object Object]') {
+        errorMessage = error.toString();
+      }
+      
+      // Check for network errors
+      if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('NetworkError')) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      }
+      
       throw new Error(errorMessage);
     }
   };
@@ -296,7 +328,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyOTP = async (phoneNumber: string, otpCode: string, fullName?: string, deviceId?: string) => {
     try {
       console.log("[Auth] Verifying OTP for phone:", phoneNumber);
-      const { apiPost } = await import('@/utils/api');
+      const { apiPost, BACKEND_URL, isBackendConfigured } = await import('@/utils/api');
+      
+      // Check if backend is configured
+      if (!isBackendConfigured()) {
+        const errorMsg = "Backend is not configured. Please check your app configuration.";
+        console.error("[Auth]", errorMsg);
+        throw new Error(errorMsg);
+      }
+      
+      console.log("[Auth] Backend URL:", BACKEND_URL);
+      console.log("[Auth] Calling POST /api/phone/verify-otp");
+      
       const response = await apiPost('/api/phone/verify-otp', {
         phoneNumber,
         otpCode,
@@ -363,8 +406,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[Auth] OTP verified successfully, user logged in");
     } catch (error: any) {
       console.error("[Auth] OTP verification failed:", error);
+      console.error("[Auth] Error details:", {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        cause: error?.cause,
+      });
+      
       // Ensure we always have a message
-      const errorMessage = error?.message || error?.toString() || "Failed to verify OTP. Please try again.";
+      let errorMessage = "Failed to verify OTP. Please try again.";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      } else if (error?.toString && error.toString() !== '[object Object]') {
+        errorMessage = error.toString();
+      }
+      
+      // Check for network errors
+      if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('NetworkError')) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      }
+      
       throw new Error(errorMessage);
     }
   };
