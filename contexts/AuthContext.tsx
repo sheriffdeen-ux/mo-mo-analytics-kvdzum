@@ -5,9 +5,14 @@ import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
 
 interface User {
   id: string;
-  email: string;
+  email?: string;
   name?: string;
+  fullName?: string;
+  phoneNumber?: string;
   image?: string;
+  subscriptionStatus?: string;
+  trialEndDate?: string;
+  currentPlanId?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +20,8 @@ interface AuthContextType {
   loading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
+  signInWithPhone: (phoneNumber: string) => Promise<void>;
+  verifyOTP: (phoneNumber: string, otpCode: string, fullName?: string, deviceId?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
@@ -200,6 +207,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const signInWithPhone = async (phoneNumber: string) => {
+    try {
+      console.log("[Auth] Sending OTP to phone:", phoneNumber);
+      const { apiPost } = await import('@/utils/api');
+      await apiPost('/api/phone/send-otp', { phoneNumber });
+      console.log("[Auth] OTP sent successfully");
+    } catch (error) {
+      console.error("[Auth] Failed to send OTP:", error);
+      throw error;
+    }
+  };
+
+  const verifyOTP = async (phoneNumber: string, otpCode: string, fullName?: string, deviceId?: string) => {
+    try {
+      console.log("[Auth] Verifying OTP for phone:", phoneNumber);
+      const { apiPost } = await import('@/utils/api');
+      const response = await apiPost('/api/phone/verify-otp', {
+        phoneNumber,
+        otpCode,
+        fullName,
+        deviceId: deviceId || 'unknown-device',
+      });
+      
+      // Store the access token
+      if (response.accessToken) {
+        await setBearerToken(response.accessToken);
+      }
+      
+      // Set user from response
+      if (response.user) {
+        setUser(response.user);
+      }
+      
+      // Register device with backend
+      await registerDeviceWithBackend();
+      
+      console.log("[Auth] OTP verified successfully, user logged in");
+    } catch (error) {
+      console.error("[Auth] OTP verification failed:", error);
+      throw error;
+    }
+  };
+
   const signInWithGoogle = () => signInWithSocial("google");
   const signInWithApple = () => signInWithSocial("apple");
   const signInWithGitHub = () => signInWithSocial("github");
@@ -223,6 +273,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signInWithEmail,
         signUpWithEmail,
+        signInWithPhone,
+        verifyOTP,
         signInWithGoogle,
         signInWithApple,
         signInWithGitHub,

@@ -9,150 +9,258 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  useColorScheme,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
+import { colors } from "@/styles/commonStyles";
+import * as Device from "expo-device";
 
-type Mode = "signin" | "signup";
+type AuthMode = "phone" | "otp" | "email";
 
 export default function AuthScreen() {
   const router = useRouter();
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithApple, signInWithGitHub, loading: authLoading } =
-    useAuth();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === "dark";
+  const { signInWithPhone, verifyOTP, loading: authLoading } = useAuth();
 
-  const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [mode, setMode] = useState<AuthMode>("phone");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   if (authLoading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
+      <View style={[styles.loadingContainer, { backgroundColor: isDark ? colors.background : "#fff" }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  const handleEmailAuth = async () => {
-    if (!email || !password) {
-      console.log("⚠️ Please enter email and password");
+  const formatPhoneNumber = (text: string) => {
+    const cleaned = text.replace(/\D/g, "");
+    if (cleaned.startsWith("233")) {
+      return `+${cleaned}`;
+    } else if (cleaned.startsWith("0")) {
+      return `+233${cleaned.substring(1)}`;
+    } else if (cleaned.length > 0) {
+      return `+233${cleaned}`;
+    }
+    return text;
+  };
+
+  const handleSendOTP = async () => {
+    if (!phoneNumber) {
+      setError("Please enter your phone number");
+      return;
+    }
+
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    if (formattedPhone.length < 13) {
+      setError("Please enter a valid Ghana phone number");
       return;
     }
 
     setLoading(true);
+    setError("");
+    console.log("[Auth] Sending OTP to:", formattedPhone);
+
     try {
-      if (mode === "signin") {
-        await signInWithEmail(email, password);
-        router.replace("/(tabs)/(home)/");
-      } else {
-        await signUpWithEmail(email, password, name);
-        console.log("✅ Account created successfully!");
-        router.replace("/(tabs)/(home)/");
-      }
-    } catch (error: any) {
-      console.error("❌ Authentication failed:", error.message || error);
+      await signInWithPhone(formattedPhone);
+      setOtpSent(true);
+      setMode("otp");
+      setCountdown(60);
+      
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      console.log("✅ OTP sent successfully");
+    } catch (err: any) {
+      console.error("❌ Failed to send OTP:", err);
+      setError(err.message || "Failed to send OTP. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSocialAuth = async (provider: "google" | "apple" | "github") => {
+  const handleVerifyOTP = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setError("Please enter the 6-digit OTP code");
+      return;
+    }
+
     setLoading(true);
+    setError("");
+    console.log("[Auth] Verifying OTP for:", phoneNumber);
+
     try {
-      if (provider === "google") {
-        await signInWithGoogle();
-      } else if (provider === "apple") {
-        await signInWithApple();
-      } else if (provider === "github") {
-        await signInWithGitHub();
-      }
+      const deviceId = Device.modelId || "unknown-device";
+      const formattedPhone = formatPhoneNumber(phoneNumber);
+      
+      await verifyOTP(formattedPhone, otpCode, fullName || undefined, deviceId);
+      console.log("✅ OTP verified successfully, redirecting...");
       router.replace("/(tabs)/(home)/");
-    } catch (error: any) {
-      console.error("❌ Authentication failed:", error.message || error);
+    } catch (err: any) {
+      console.error("❌ OTP verification failed:", err);
+      setError(err.message || "Invalid OTP code. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  const handleResendOTP = async () => {
+    if (countdown > 0) return;
+    
+    setLoading(true);
+    setError("");
+    console.log("[Auth] Resending OTP to:", phoneNumber);
+
+    try {
+      const formattedPhone = formatPhoneNumber(phoneNumber);
+      await signInWithPhone(formattedPhone);
+      setCountdown(60);
+      
+      const timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      console.log("✅ OTP resent successfully");
+    } catch (err: any) {
+      console.error("❌ Failed to resend OTP:", err);
+      setError(err.message || "Failed to resend OTP. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const backgroundColor = isDark ? colors.background : "#fff";
+  const textColor = isDark ? colors.text : "#000";
+  const inputBg = isDark ? colors.cardBackground : "#fff";
+  const inputBorder = isDark ? colors.border : "#ddd";
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
-          <Text style={styles.title}>
-            {mode === "signin" ? "Sign In" : "Sign Up"}
+          <Text style={[styles.title, { color: textColor }]}>
+            MoMo Analytics
+          </Text>
+          <Text style={[styles.subtitle, { color: isDark ? colors.textSecondary : "#666" }]}>
+            {mode === "phone" ? "Enter your phone number to get started" : "Enter the OTP code sent to your phone"}
           </Text>
 
-          {mode === "signup" && (
-            <TextInput
-              style={styles.input}
-              placeholder="Name (optional)"
-              value={name}
-              onChangeText={setName}
-              autoCapitalize="words"
-            />
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {mode === "phone" ? (
+            <React.Fragment>
+              <TextInput
+                style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
+                placeholder="Full Name"
+                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+                value={fullName}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+              />
+
+              <TextInput
+                style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
+                placeholder="Phone Number (e.g., 0241234567)"
+                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                keyboardType="phone-pad"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <TouchableOpacity
+                style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                onPress={handleSendOTP}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Send OTP</Text>
+                )}
+              </TouchableOpacity>
+            </React.Fragment>
+          ) : (
+            <React.Fragment>
+              <View style={styles.phoneDisplay}>
+                <Text style={[styles.phoneDisplayText, { color: textColor }]}>
+                  {formatPhoneNumber(phoneNumber)}
+                </Text>
+                <TouchableOpacity onPress={() => setMode("phone")}>
+                  <Text style={[styles.changePhoneText, { color: colors.primary }]}>Change</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={[styles.otpInput, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
+                placeholder="Enter 6-digit OTP"
+                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+                value={otpCode}
+                onChangeText={setOtpCode}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <TouchableOpacity
+                style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                onPress={handleVerifyOTP}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Verify OTP</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.resendButton}
+                onPress={handleResendOTP}
+                disabled={countdown > 0 || loading}
+              >
+                <Text style={[styles.resendText, { color: countdown > 0 ? (isDark ? colors.textSecondary : "#999") : colors.primary }]}>
+                  {countdown > 0 ? `Resend OTP in ${countdown}s` : "Resend OTP"}
+                </Text>
+              </TouchableOpacity>
+            </React.Fragment>
           )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-          />
-
-          <TouchableOpacity
-            style={[styles.primaryButton, loading && styles.buttonDisabled]}
-            onPress={handleEmailAuth}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.primaryButtonText}>
-                {mode === "signin" ? "Sign In" : "Sign Up"}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.switchModeButton}
-            onPress={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            <Text style={styles.switchModeText}>
-              {mode === "signin"
-                ? "Don't have an account? Sign Up"
-                : "Already have an account? Sign In"}
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: isDark ? colors.textSecondary : "#666" }]}>
+              By continuing, you agree to our Terms of Service and Privacy Policy
             </Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
           </View>
-
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={() => handleSocialAuth("google")}
-            disabled={loading}
-          >
-            <Text style={styles.socialButtonText}>Continue with Google</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -162,13 +270,11 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#fff",
   },
   scrollContent: {
     flexGrow: 1,
@@ -181,23 +287,62 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  subtitle: {
+    fontSize: 16,
     marginBottom: 32,
     textAlign: "center",
-    color: "#000",
+  },
+  errorContainer: {
+    backgroundColor: "#fee",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: "#c00",
+    fontSize: 14,
+    textAlign: "center",
   },
   input: {
     height: 50,
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 8,
     paddingHorizontal: 16,
     marginBottom: 16,
     fontSize: 16,
-    backgroundColor: "#fff",
+  },
+  otpInput: {
+    height: 60,
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    fontSize: 24,
+    textAlign: "center",
+    letterSpacing: 8,
+    fontWeight: "600",
+  },
+  phoneDisplay: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  phoneDisplayText: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+  changePhoneText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   primaryButton: {
     height: 50,
-    backgroundColor: "#007AFF",
+    backgroundColor: colors.primary,
     borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
@@ -211,49 +356,23 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  switchModeButton: {
+  resendButton: {
     marginTop: 16,
     alignItems: "center",
   },
-  switchModeText: {
-    color: "#007AFF",
+  resendText: {
     fontSize: 14,
+    fontWeight: "600",
   },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 24,
+  footer: {
+    marginTop: 32,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#ddd",
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: "#666",
-    fontSize: 14,
-  },
-  socialButton: {
-    height: 50,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: "#fff",
-  },
-  socialButtonText: {
-    fontSize: 16,
-    color: "#000",
-    fontWeight: "500",
-  },
-  appleButton: {
-    backgroundColor: "#000",
-    borderColor: "#000",
-  },
-  appleButtonText: {
-    color: "#fff",
+  footerText: {
+    fontSize: 12,
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

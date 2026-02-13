@@ -1,233 +1,384 @@
 # MoMo Analytics
 
-A Mobile Money fraud detection system for Ghana that automatically analyzes MoMo transactions in real-time and alerts users to suspicious activity.
+A comprehensive Mobile Money fraud detection and analytics platform for Ghana.
 
 ## 🚀 Features
 
-- **Real-time Transaction Monitoring**: View all your MoMo transactions with risk analysis
-- **7-Layer Fraud Detection**: Advanced AI-powered fraud detection system
-- **Risk Scoring**: Transactions scored 0-100 with risk levels (LOW, MEDIUM, HIGH, CRITICAL)
-- **Financial Analytics**: Track total sent/received, daily/weekly/monthly stats
-- **Merchant Management**: Block suspicious merchants or mark trusted ones
-- **Fraud Reporting**: Report fraudulent transactions for investigation
-- **User Settings**: Customize daily spending limits
-- **Multi-Provider Support**: MTN MoMo, Vodafone Cash, AirtelTigo Money
+### Authentication
+- **Phone Number Login** with SMS OTP verification (via Arkesel)
+- **14-Day Free Trial** with full access to Pro features
+- **Device Binding** for enhanced security
+- **JWT Token Authentication** with refresh tokens
 
-## 🏗️ Architecture
+### Subscription Plans
 
-### Frontend (React Native + Expo)
-- **Framework**: Expo 54 with React Native
-- **Authentication**: Better Auth with email/password + Google OAuth
-- **Navigation**: Expo Router (file-based routing)
-- **State Management**: React Context API
-- **Styling**: React Native StyleSheet with dark mode support
+#### Free Plan
+- SMS detection
+- Basic fraud scoring
+- Risk alerts
+- Last 30 transactions
+- Basic daily summary
 
-### Backend (Specular Framework)
-- **Framework**: Specular with Fastify
-- **Database**: PostgreSQL with Drizzle ORM
-- **Authentication**: Better Auth
-- **API**: RESTful API with OpenAPI documentation
+#### Pro Plan
+- Full 7-layer fraud engine
+- Unlimited transaction history
+- Daily/Weekly/Monthly analytics
+- Money sent vs received charts
+- Custom daily spending limits
+- Advanced alerts (real-time high priority)
+- Export to CSV
+- Merchant insights
 
-## 📱 Screens
+**Pricing:**
+- Weekly: GHS 7
+- Monthly: GHS 30
+- Yearly: GHS 240
 
-1. **Transactions Screen** (`/(tabs)/(home)/`)
-   - View all transactions with risk indicators
-   - Summary cards (Total Sent, Total Received, Fraud Detected)
-   - Transaction details with risk reasons
-   - Pull-to-refresh functionality
-   - Tap transaction to block merchant or report fraud
+#### Business Plan
+- All Pro features
+- Multi-device support
+- Central dashboard
+- Staff monitoring
+- Real-time fraud alerts
+- Transaction reconciliation reports
+- Monthly revenue breakdown
+- Exportable financial reports
 
-2. **Profile Screen** (`/(tabs)/profile`)
-   - User information
-   - Settings management (daily limit)
-   - Blocked/trusted merchants count
-   - Sign out functionality
+**Pricing:**
+- Weekly: GHS 40
+- Monthly: GHS 99
 
-3. **Auth Screen** (`/auth`)
-   - Email/password sign in/sign up
-   - Google OAuth integration
-   - Automatic redirect after authentication
+### Security Features
+- Secure input validation
+- Rate limiting on all endpoints
+- OTP codes hashed (never stored plain)
+- PINs never stored in plain text
+- Encrypted data transmission
+- Device binding for multi-factor authentication
 
-## 🔐 Authentication Flow
+### SMS Processing
+- **User Choice:** Read all SMS or only Mobile Money SMS
+- **Privacy First:** SMS messages are NOT stored, only extracted transaction data
+- **Automatic Detection:** Analyzes transactions from MTN, Vodafone, AirtelTigo
 
-1. User opens app → Redirected to `/auth` if not authenticated
-2. User signs up/signs in with email or Google
-3. Backend creates session and returns bearer token
-4. Token stored in SecureStore (native) or localStorage (web)
-5. Device registered with backend for push notifications
-6. User redirected to `/(tabs)/(home)/`
-7. All API calls include bearer token in Authorization header
+### Adaptive Alert System
+- **Personalized Learning:** AI adapts to your transaction patterns
+- **Confirm Safe:** Lower sensitivity after 10 safe confirmations
+- **Report Fraud:** Increase sensitivity when fraud is detected
+- **Elite Behavior Modeling:** Your AI becomes personalized over time
 
-## 🧪 Testing Instructions
+## 🔧 Backend API
 
-### Prerequisites
-```bash
-npm install
+**Base URL:** `https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev`
+
+### Authentication Endpoints
+
+#### Send OTP
+```
+POST /api/phone/send-otp
+Body: { phoneNumber: string }
+Response: { success: true, expiresIn: 600 }
 ```
 
-### Test User Credentials
+#### Verify OTP
+```
+POST /api/phone/verify-otp
+Body: { phoneNumber: string, otpCode: string, fullName?: string, deviceId: string }
+Response: { user: {...}, accessToken: string, refreshToken: string }
+```
 
-**Option 1: Create a new account**
-- Email: `test@momoanalytics.com`
-- Password: `Test123!@#`
-- Name: `Test User`
+#### Resend OTP
+```
+POST /api/phone/resend-otp
+Body: { phoneNumber: string }
+Response: { success: true, expiresIn: 600 }
+```
 
-**Option 2: Use Google OAuth**
-- Click "Continue with Google" on auth screen
-- Sign in with any Google account
+### Subscription Endpoints
 
-### Testing Workflow
+#### Get Plans
+```
+GET /api/subscriptions/plans
+Response: { plans: [...] }
+```
 
-1. **Start the app**
-   ```bash
-   npm run dev
-   ```
+#### Get Subscription Status
+```
+GET /api/subscriptions/status (Protected)
+Response: { subscriptionStatus, currentPlan, trialEndDate, daysRemaining, features, canAccessFeature }
+```
 
-2. **Sign Up/Sign In**
-   - Open the app in Expo Go or web browser
-   - Create account or sign in with test credentials
-   - Verify redirect to transactions screen
+#### Initiate Payment
+```
+POST /api/subscriptions/initiate-payment (Protected)
+Body: { planId: string }
+Response: { authorizationUrl: string, reference: string }
+```
 
-3. **Test Transaction List**
-   - View transactions (will be empty initially)
-   - Pull down to refresh
-   - Check summary cards display correctly
+#### Cancel Subscription
+```
+POST /api/subscriptions/cancel (Protected)
+Response: { success: true, endsAt: string }
+```
 
-4. **Test Transaction Actions**
-   - Tap any transaction card
-   - Modal should appear with transaction details
-   - Test "Block Merchant" button
-   - Test "Report Fraud" button
-   - Verify console logs show success messages
+### Transaction Endpoints
 
-5. **Test Settings**
-   - Navigate to Profile tab
-   - Change daily limit (e.g., from 2000 to 3000)
-   - Click "Save Settings"
-   - Verify console shows success message
-   - Refresh to confirm settings persisted
+#### Get Transactions
+```
+GET /api/transactions (Protected)
+Query: page, limit
+Response: { transactions: [...], total, page, totalPages }
+```
 
-6. **Test Sign Out**
-   - Click "Sign Out" button in Profile
-   - Verify redirect to auth screen
-   - Verify can't access protected routes without auth
+#### Block Merchant
+```
+POST /api/transactions/:id/block (Protected)
+Response: { success: true }
+```
 
-### API Endpoints Integrated
+#### Report Fraud
+```
+POST /api/transactions/:id/report-fraud (Protected)
+Response: { success: true, newSensitivity: number }
+```
 
-✅ **Authentication**
-- `POST /api/auth/sign-in/email` - Email sign in
-- `POST /api/auth/sign-up/email` - Email sign up
-- `GET /api/auth/session` - Get current session
-- `POST /api/auth/sign-out` - Sign out
+#### Confirm Safe
+```
+POST /api/transactions/:id/confirm-safe (Protected)
+Response: { success: true, newSensitivity: number }
+```
 
-✅ **Device Registration**
-- `POST /api/register-device` - Register device for push notifications
+#### Export CSV
+```
+GET /api/transactions/export/csv (Protected)
+Response: CSV file
+```
 
-✅ **Transactions**
-- `GET /api/transactions` - Get paginated transaction list
-- `POST /api/transactions/:id/block` - Block merchant
-- `POST /api/transactions/:id/report-fraud` - Report fraud
+### Analytics Endpoints
 
-✅ **Analytics**
-- `GET /api/analytics/summary` - Get financial summary
+#### Get Summary
+```
+GET /api/analytics/summary (Protected)
+Response: { totalSent, totalReceived, dailyStats, weeklyStats, monthlyStats, fraudDetected, moneyProtected }
+```
 
-✅ **Settings**
-- `GET /api/settings` - Get user settings
-- `PUT /api/settings` - Update user settings
+#### Get Fraud Trends
+```
+GET /api/analytics/fraud-trends (Protected)
+Response: { trends: [...] }
+```
 
-### Expected Behavior
+### Settings Endpoints
 
-**On First Load:**
-- Empty transaction list with "No transactions yet" message
-- Summary cards show 0 values
-- Settings show default daily limit (2000 GHS)
+#### Get Settings
+```
+GET /api/settings (Protected)
+Response: { dailyLimit, blockedMerchants, trustedMerchants, smsReadPreference }
+```
 
-**After Adding Transactions (via SMS or API):**
-- Transactions appear in list with risk badges
-- Summary cards update with totals
-- High/Critical risk transactions show risk reasons
-- Can interact with transactions to block/report
+#### Update Settings
+```
+PUT /api/settings (Protected)
+Body: { dailyLimit?, smsReadPreference? }
+Response: { updated settings }
+```
 
-**Error Handling:**
-- Network errors logged to console
-- Failed API calls don't crash app
-- User sees empty states instead of errors
-- Loading indicators during API calls
+### Legal Endpoints
 
-## 🔧 Configuration
+#### Privacy Policy
+```
+GET /api/legal/privacy-policy
+Response: { policy: string }
+```
 
-### Backend URL
-The backend URL is configured in `app.json`:
+#### Terms of Service
+```
+GET /api/legal/terms-of-service
+Response: { terms: string }
+```
+
+## 🧪 Testing the Application
+
+### 1. Authentication Flow
+
+**Test Phone Number:** Use any Ghana phone number format:
+- `0241234567` (will be converted to `+233241234567`)
+- `+233241234567`
+- `233241234567`
+
+**OTP Code:** The backend will send a real OTP via Arkesel SMS API. Check your phone for the code.
+
+**Sample Test User:**
+- **Full Name:** John Doe
+- **Phone Number:** +233241234567
+- **OTP:** Check your phone for the 6-digit code
+
+**Test Steps:**
+1. Open the app
+2. Enter your full name (e.g., "John Doe")
+3. Enter your Ghana phone number (e.g., "0241234567")
+4. Click "Send OTP"
+5. Check your phone for the OTP code (valid for 10 minutes)
+6. Enter the 6-digit code
+7. Click "Verify OTP"
+8. You should be logged in with a 14-day trial
+
+**Important Notes:**
+- OTP codes expire after 10 minutes
+- Maximum 3 OTP requests per phone number per hour (rate limiting)
+- Maximum 3 verification attempts per OTP code
+- After successful login, you get 14 days free trial with full Pro features
+
+### 2. Trial Period
+
+After successful login:
+- You get **14 days free access** to all Pro features
+- Check the Profile screen to see your trial status
+- Days remaining will be displayed
+
+### 3. Transactions
+
+The app will:
+- Automatically analyze SMS messages (based on your preference)
+- Extract transaction data (amount, sender, receiver, provider)
+- Calculate fraud risk scores
+- Display transactions on the home screen
+
+**Test Actions:**
+1. Tap on any transaction
+2. Choose an action:
+   - **This is Safe:** Lowers alert sensitivity (after 10 confirmations)
+   - **Block Merchant:** Blocks future transactions from this merchant
+   - **Report Fraud:** Increases alert sensitivity for better protection
+
+### 4. Settings
+
+Navigate to Profile > Settings:
+- **Daily Limit:** Set your daily spending limit (e.g., GHS 2000)
+- **SMS Reading:** Choose between "MoMo SMS Only" or "All SMS"
+- Click "Save Settings"
+
+### 5. Subscription Upgrade
+
+Navigate to Profile > Upgrade:
+1. View available plans (Free, Pro, Business)
+2. Select a plan (e.g., Pro Weekly - GHS 7)
+3. Click "Subscribe"
+4. You'll be redirected to Paystack payment page
+5. Complete payment using:
+   - **Test Card:** 4084084084084081
+   - **CVV:** 408
+   - **Expiry:** Any future date
+   - **PIN:** 0000
+   - **OTP:** 123456
+
+### 6. Analytics
+
+View your financial insights:
+- Total Sent
+- Total Received
+- Fraud Detected
+- Money Protected
+- Daily/Weekly/Monthly trends
+
+### 7. Privacy Policy
+
+Navigate to Profile > Privacy Policy to view the complete privacy policy.
+
+## 🔐 API Keys & Configuration
+
+The following keys are configured in `app.json`:
+
 ```json
 {
-  "expo": {
-    "extra": {
-      "backendUrl": "https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev"
-    }
+  "extra": {
+    "backendUrl": "https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev",
+    "arkeselApiKey": "TkpKcE5QQ09PREN1dFBOWUV1eGQ",
+    "paystackPublicKey": "pk_live_b77def2981f5ddf85b842e00e94ad4171e9641f6"
   }
 }
 ```
 
-### API Client
-All API calls use the centralized `utils/api.ts` wrapper:
-```typescript
-import { authenticatedGet, authenticatedPost } from '@/utils/api';
+**Backend Secret Keys (Server-side only):**
+- Paystack Secret: `sk_live_11dc621fcdffc09bbd9281145a03c4dc6fea6224`
+- Arkesel API Key: `TkpKcE5QQ09PREN1dFBOWUV1eGQ`
 
-// GET request
-const data = await authenticatedGet('/api/transactions');
+## 📱 Running the App
 
-// POST request
-const result = await authenticatedPost('/api/settings', { dailyLimit: 3000 });
+### Development
+```bash
+# Install dependencies
+npm install
+
+# Start Expo dev server
+npx expo start
+
+# Run on iOS
+npx expo start --ios
+
+# Run on Android
+npx expo start --android
+
+# Run on Web
+npx expo start --web
 ```
 
-## 📊 Fraud Detection Layers
+### Production Build
+```bash
+# iOS
+eas build --platform ios
 
-1. **Time-Based**: Late night transactions (2am-5am) get higher risk scores
-2. **Amount Analysis**: Large amounts (>1000 GHS) flagged
-3. **Daily Limit**: Transactions exceeding user's daily limit
-4. **Velocity**: Multiple transactions in short time periods
-5. **Merchant Blocking**: User-blocked or globally blacklisted merchants
-6. **Round Amounts**: Exact amounts (100, 500, 1000) are suspicious
-7. **Balance Analysis**: Low balance after transaction
+# Android
+eas build --platform android
+```
 
-## 🎨 Design System
+## 🏗️ Project Structure
 
-### Colors
-- **Primary**: Ghana Gold (#FFD700)
-- **Secondary**: Ghana Green (#006B3F)
-- **Risk Levels**:
-  - LOW: Green (#10B981)
-  - MEDIUM: Amber (#F59E0B)
-  - HIGH: Red (#EF4444)
-  - CRITICAL: Dark Red (#DC2626)
+```
+├── app/
+│   ├── (tabs)/
+│   │   ├── (home)/
+│   │   │   └── index.tsx          # Transactions screen
+│   │   └── profile.tsx            # Profile & settings
+│   ├── auth.tsx                   # Phone OTP authentication
+│   ├── upgrade.tsx                # Subscription plans
+│   └── privacy-policy.tsx         # Privacy policy
+├── contexts/
+│   └── AuthContext.tsx            # Authentication state management
+├── utils/
+│   └── api.ts                     # API client with Bearer token support
+├── lib/
+│   └── auth.ts                    # Better Auth client configuration
+└── app.json                       # App configuration
+```
 
-### Dark Mode
-Full dark mode support with automatic theme switching based on system preferences.
+## 🔒 Security Best Practices
 
-## 🚨 Important Notes
+1. **Never commit API keys** to version control
+2. **Use environment variables** for sensitive data
+3. **Implement rate limiting** on all endpoints
+4. **Validate all inputs** on both client and server
+5. **Hash sensitive data** (OTPs, PINs) before storage
+6. **Use HTTPS** for all API communications
+7. **Implement proper error handling** without exposing sensitive information
 
-1. **No Alert() Usage**: All alerts replaced with console.log for web compatibility
-2. **Session Persistence**: Auth tokens stored securely and persist across app restarts
-3. **Cross-Platform**: Works on iOS, Android, and Web
-4. **Error Logging**: All errors logged to console with emoji indicators (✅ ❌ ⚠️)
+## 📄 Privacy & Data Handling
 
-## 📝 Development Notes
+- **SMS messages are NOT stored** - only extracted transaction data
+- **User data is encrypted** in transit and at rest
+- **OTP codes are hashed** and expire after 10 minutes
+- **PINs are never stored** in plain text
+- **Users can delete their data** at any time
+- **GDPR compliant** data handling
 
-### Adding New Endpoints
-1. Add endpoint to `utils/api.ts` if needed
-2. Import and use in component:
-   ```typescript
-   const { authenticatedGet } = await import('@/utils/api');
-   const data = await authenticatedGet('/api/new-endpoint');
-   ```
+## 🤝 Support
 
-### Adding New Screens
-1. Create file in `app/(tabs)/` directory
-2. Add route to `app/(tabs)/_layout.tsx`
-3. Add tab to `FloatingTabBar` configuration
+For issues or questions:
+- Email: support@momoanalytics.com
+- Check the Privacy Policy for data handling information
 
-## 🤝 Contributing
+## 📝 License
 
 This app was built using [Natively.dev](https://natively.dev) - a platform for creating mobile apps.
 
-Made with 💙 for Ghana's Mobile Money users.
+Made with 💙 for creativity.
