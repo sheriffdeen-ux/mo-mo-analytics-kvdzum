@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
+import { getBearerToken } from "@/utils/api";
 
 interface User {
   id: string;
@@ -105,22 +106,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUser = async () => {
     try {
       setLoading(true);
-      const session = await authClient.getSession();
-      if (session?.data?.user) {
-        setUser(session.data.user as User);
-        // Sync token to SecureStore for utils/api.ts
-        if (session.data.session?.token) {
-          await setBearerToken(session.data.session.token);
-          // Register device after successful authentication
-          await registerDeviceWithBackend();
+      
+      // Check if we have a bearer token first (for phone auth)
+      const token = await getBearerToken();
+      if (token) {
+        console.log("[Auth] Found bearer token, attempting to fetch user");
+        // We have a token, try to get user info from backend
+        try {
+          const { authenticatedGet } = await import('@/utils/api');
+          const userData = await authenticatedGet('/api/user/me');
+          if (userData) {
+            setUser(userData as User);
+            console.log("[Auth] User fetched successfully via bearer token");
+            // Register device after successful authentication
+            await registerDeviceWithBackend();
+            return;
+          }
+        } catch (error) {
+          console.error("[Auth] Failed to fetch user with bearer token:", error);
+          // Token might be invalid, clear it
+          await clearAuthTokens();
         }
-      } else {
-        setUser(null);
-        await clearAuthTokens();
       }
-    } catch (error) {
-      console.error("Failed to fetch user:", error);
+      
+      // Try Better Auth session (for OAuth)
+      try {
+        const session = await authClient.getSession();
+        if (session?.data?.user) {
+          setUser(session.data.user as User);
+          // Sync token to SecureStore for utils/api.ts
+          if (session.data.session?.token) {
+            await setBearerToken(session.data.session.token);
+            // Register device after successful authentication
+            await registerDeviceWithBackend();
+          }
+          console.log("[Auth] User fetched successfully via Better Auth session");
+          return;
+        }
+      } catch (error) {
+        // Session fetch failed, but this is expected if user is not logged in
+        console.log("[Auth] No Better Auth session found (this is normal for new users)");
+      }
+      
+      // No valid session found
       setUser(null);
+      await clearAuthTokens();
+    } catch (error) {
+      console.error("[Auth] Failed to fetch user:", error);
+      setUser(null);
+      await clearAuthTokens();
     } finally {
       setLoading(false);
     }
@@ -269,13 +303,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error(errorMessage);
       }
       
-      // Store the access token
-      if (response.accessToken || response.authToken) {
-        const token = response.accessToken || response.authToken;
-        await setBearerToken(token);
-        console.log("[Auth] Access token stored successfully");
+      // Store the access token (JWT)
+      if (response.accessToken) {
+        await setBearerToken(response.accessToken);
+        console.log("[Auth] JWT access token stored successfully");
       } else {
         console.warn("[Auth] No access token received from backend");
+        throw new Error("Authentication failed: No access token received");
       }
       
       // Set user from response

@@ -6,6 +6,13 @@
 The frontend has been successfully integrated with the backend API deployed at:
 **https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev**
 
+### 🎉 Latest Updates (Backend Changes Applied)
+1. ✅ **JWT Token Generation**: The backend now returns a proper JWT token in the `verify-otp` response
+2. ✅ **GET /api/user/me Endpoint**: New protected endpoint to fetch current user information
+3. ✅ **JWT Verification Middleware**: All protected endpoints now verify JWT tokens
+4. ✅ **Frontend Integration**: AuthContext updated to use the new `/api/user/me` endpoint
+5. ✅ **Session Persistence**: App now properly remembers users across app restarts
+
 ## 🔐 Authentication Flow
 
 ### Phone/OTP Authentication
@@ -173,12 +180,13 @@ Action: Confirm sign out
 Expected: User logged out, redirected to auth screen
 ```
 
-## 🚨 Known Issues & Fixes
+## ✅ Backend Updates Completed
 
-### Issue 1: Backend JWT Token Generation
-**Problem**: The backend's `verify-otp` endpoint needs to generate and return a JWT token.
+### Update 1: JWT Token Generation ✅
+**Status**: ✅ **COMPLETED**
 
-**Expected Backend Response**:
+The backend now generates and returns a JWT token in the `verify-otp` endpoint response:
+
 ```json
 {
   "success": true,
@@ -187,86 +195,60 @@ Expected: User logged out, redirected to auth screen
     "fullName": "John Doe",
     "phoneNumber": "+233241234567",
     "subscriptionStatus": "trial",
-    "trialEndDate": "2024-03-01T00:00:00.000Z"
+    "trialEndDate": "2024-03-01T00:00:00.000Z",
+    "currentPlanId": "trial"
   },
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-**Backend Implementation Required**:
-```typescript
-import jwt from "jsonwebtoken";
+The JWT token contains:
+- `userId`: User's unique ID
+- `phoneNumber`: User's phone number
+- `exp`: Expiration timestamp (30 days from creation)
 
-// In verify-otp endpoint, after successful verification:
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key-here";
-const accessToken = jwt.sign(
-  {
-    userId: userData.userId,
-    phoneNumber: userData.phoneNumber,
-  },
-  JWT_SECRET,
-  { expiresIn: "30d" }
-);
+### Update 2: GET /api/user/me Endpoint ✅
+**Status**: ✅ **COMPLETED**
 
-return {
-  success: true,
-  user: {
-    id: userData.userId,
-    fullName: userData.fullName,
-    phoneNumber: userData.phoneNumber,
-    subscriptionStatus: userData.subscriptionStatus,
-    trialEndDate: userData.trialEndDate,
-  },
-  accessToken,
-};
+A new protected endpoint has been added to fetch the current user's information:
+
+**Endpoint**: `GET /api/user/me`
+**Authentication**: Required (Bearer token)
+**Response**:
+```json
+{
+  "id": "user_xxx",
+  "fullName": "John Doe",
+  "phoneNumber": "+233241234567",
+  "email": "+233241234567",
+  "subscriptionStatus": "trial",
+  "trialEndDate": "2024-03-01T00:00:00.000Z",
+  "currentPlanId": "trial"
+}
 ```
 
-**Status**: ⚠️ Needs backend update (cannot modify backend files from frontend agent)
+This endpoint is used by the frontend to:
+1. Check if the user is authenticated on app load
+2. Fetch the latest user data (subscription status, trial days, etc.)
+3. Validate the JWT token
 
-### Issue 2: JWT Token Verification Middleware
-**Problem**: Protected endpoints need to verify the JWT token.
+### Update 3: JWT Token Verification Middleware ✅
+**Status**: ✅ **COMPLETED**
 
-**Backend Implementation Required**:
-```typescript
-// Add JWT verification middleware
-fastify.addHook('preHandler', async (request, reply) => {
-  const protectedRoutes = [
-    '/api/transactions',
-    '/api/settings',
-    '/api/subscriptions',
-    '/api/analytics',
-    '/api/admin',
-  ];
-  
-  const isProtected = protectedRoutes.some(route => 
-    request.url.startsWith(route)
-  );
-  
-  if (isProtected) {
-    const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return reply.code(401).send({ error: 'Unauthorized' });
-    }
-    
-    const token = authHeader.substring(7);
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      request.user = decoded; // Attach user to request
-    } catch (error) {
-      return reply.code(401).send({ error: 'Invalid token' });
-    }
-  }
-});
-```
-
-**Status**: ⚠️ Needs backend update
+All protected endpoints now verify the JWT token from the `Authorization: Bearer <token>` header:
+- Token is extracted from the header
+- Token is verified using the JWT_SECRET
+- User ID is extracted from the token payload
+- User data is fetched from the database
+- If token is invalid or user not found, returns 401 Unauthorized
 
 ## 📊 API Endpoints Summary
 
 ### Authentication
 - `POST /api/phone/send-otp` - Send OTP to phone number
-- `POST /api/phone/verify-otp` - Verify OTP and log in
+- `POST /api/phone/verify-otp` - Verify OTP and log in (returns JWT token)
 - `POST /api/phone/resend-otp` - Resend OTP
+- `GET /api/user/me` - Get current user info (requires authentication)
 
 ### Transactions
 - `GET /api/transactions` - Get user transactions (paginated)
@@ -303,20 +285,82 @@ fastify.addHook('preHandler', async (request, reply) => {
 
 ## 🎯 Next Steps
 
-1. **Backend Team**: Implement JWT token generation in the `verify-otp` endpoint
-2. **Backend Team**: Add JWT verification middleware for protected endpoints
-3. **Backend Team**: Install `jsonwebtoken` package: `npm install jsonwebtoken @types/jsonwebtoken`
+1. ✅ **Backend Team**: JWT token generation implemented
+2. ✅ **Backend Team**: JWT verification middleware added
+3. ✅ **Backend Team**: GET /api/user/me endpoint added
 4. **Testing**: Test the complete OTP flow with a real Ghana phone number
 5. **Testing**: Verify session persistence across app restarts
 6. **Testing**: Test all CRUD operations (GET, POST, PUT, DELETE)
+7. **Testing**: Verify the new /api/user/me endpoint works correctly
 
-## 📝 Sample User Credentials
+## 📝 Testing Instructions
 
-Once the backend JWT implementation is complete, you can test with:
+### Prerequisites
+1. Have a Ghana phone number that can receive SMS
+2. Ensure the backend is running at: https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev
+3. Start the Expo app: `npm start` or `npx expo start`
 
+### Test Scenario 1: New User Sign Up
+1. **Open the app** - You should see the authentication screen
+2. **Enter your full name** (e.g., "John Doe")
+3. **Enter your Ghana phone number** (e.g., "0241234567" or "+233241234567")
+4. **Click "Send OTP"**
+5. **Check your SMS** - You should receive a 6-digit OTP code
+6. **Enter the OTP code** in the app
+7. **Click "Verify OTP"**
+8. **Expected Result**: 
+   - You should be logged in
+   - Redirected to the Transactions screen
+   - A new account is created with a 14-day trial subscription
+
+### Test Scenario 2: Session Persistence
+1. **Close the app completely** (swipe away from recent apps)
+2. **Reopen the app**
+3. **Expected Result**: 
+   - You should remain logged in
+   - No redirect to the auth screen
+   - Transactions screen loads immediately
+
+### Test Scenario 3: User Profile
+1. **Navigate to the Profile tab**
+2. **Expected Result**:
+   - Your name and phone number are displayed
+   - Subscription status shows "TRIAL"
+   - Days remaining shows the number of trial days left
+   - Settings are loaded (daily limit, blocked merchants, etc.)
+
+### Test Scenario 4: Settings Update
+1. **Navigate to Profile tab**
+2. **Change the daily limit** to 5000
+3. **Click "Save Settings"**
+4. **Expected Result**:
+   - Success message appears
+   - Settings are saved to the backend
+   - Reload the app and verify the setting persists
+
+### Test Scenario 5: Sign Out
+1. **Navigate to Profile tab**
+2. **Click "Sign Out"**
+3. **Confirm sign out** in the modal
+4. **Expected Result**:
+   - You are logged out
+   - Redirected to the auth screen
+   - Token is cleared from storage
+
+### Test Scenario 6: Sign In Again
+1. **Enter your phone number** (same as before)
+2. **Click "Send OTP"**
+3. **Enter the OTP code**
+4. **Click "Verify OTP"**
+5. **Expected Result**:
+   - You are logged in
+   - Your previous account data is loaded
+   - Subscription status and settings are preserved
+
+### Sample Test Data
 **Phone Number**: Any valid Ghana phone number (e.g., +233241234567)
-**OTP**: Will be sent via SMS to the phone number
 **Full Name**: Any name (e.g., "John Doe")
+**OTP**: Will be sent via SMS (6-digit code)
 
 **Note**: The first time a user verifies their OTP, a new account is created with a 14-day trial subscription.
 

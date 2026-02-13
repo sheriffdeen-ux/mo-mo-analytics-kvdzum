@@ -1,11 +1,11 @@
 import "react-native-reanimated";
 import React, { useEffect } from "react";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { SystemBars } from "react-native-edge-to-edge";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { useColorScheme, Platform } from "react-native";
+import { useColorScheme, Platform, View, ActivityIndicator } from "react-native";
 import { useNetworkState } from "expo-network";
 import {
   DarkTheme,
@@ -15,7 +15,7 @@ import {
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 // Note: Error logging is auto-initialized via index.ts import
@@ -30,6 +30,8 @@ export const unstable_settings = {
 function RootLayoutContent() {
   const colorScheme = useColorScheme();
   const networkState = useNetworkState();
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   React.useEffect(() => {
     if (
@@ -39,6 +41,14 @@ function RootLayoutContent() {
       console.log("🔌 You are offline - Changes will be saved locally and synced when you are back online.");
     }
   }, [networkState.isConnected, networkState.isInternetReachable]);
+
+  // Auth guard: redirect to auth screen if not logged in
+  React.useEffect(() => {
+    if (!loading && !user) {
+      console.log("[Auth Guard] No user found, redirecting to auth");
+      router.replace("/auth");
+    }
+  }, [user, loading]);
 
   const CustomDefaultTheme: Theme = {
     ...DefaultTheme,
@@ -64,6 +74,15 @@ function RootLayoutContent() {
       notification: "rgb(255, 69, 58)", // System Red (Dark Mode)
     },
   };
+
+  // Show loading screen while checking auth status
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colorScheme === 'dark' ? 'rgb(1, 1, 1)' : 'rgb(242, 242, 247)' }}>
+        <ActivityIndicator size="large" color="rgb(10, 132, 255)" />
+      </View>
+    );
+  }
 
   return (
     <>
