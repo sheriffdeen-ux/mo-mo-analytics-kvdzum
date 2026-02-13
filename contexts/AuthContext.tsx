@@ -1,9 +1,9 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Platform } from "react-native";
-import * as Linking from "expo-linking";
-import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
 import { getBearerToken } from "@/utils/api";
+import * as Linking from "expo-linking";
+import { Platform } from "react-native";
+import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
 
 interface User {
   id: string;
@@ -183,8 +183,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[Device] Failed to register device with backend:', error);
     }
   };
-
-
 
   const signInWithSocial = async (provider: "google" | "apple" | "github") => {
     try {

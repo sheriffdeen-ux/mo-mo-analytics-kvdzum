@@ -27,8 +27,8 @@ export default function AuthScreen() {
   const { loading: authLoading } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("email");
+  const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [businessName, setBusinessName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -59,6 +59,11 @@ export default function AuthScreen() {
     );
   }
 
+  const validateEmail = (emailText: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(emailText);
+  };
+
   const formatPhoneNumber = (text: string) => {
     const cleaned = text.replace(/\D/g, "");
     
@@ -75,39 +80,41 @@ export default function AuthScreen() {
     return text;
   };
 
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
   const handleSendOTP = async () => {
-    if (!fullName && !businessName) {
-      setError("Please enter your full name or business name");
+    if (!email) {
+      setError("Please enter your email address");
       return;
     }
 
-    if (!phoneNumber) {
-      setError("Please enter your phone number");
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
       return;
     }
 
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    if (formattedPhone.length !== 13 || !formattedPhone.startsWith('+233')) {
-      setError("Please enter a valid Ghana phone number (e.g., 0241234567)");
+    if (!fullName) {
+      setError("Please enter your full name");
       return;
     }
 
     setLoading(true);
     setError("");
     setSuccessMessage("");
-    console.log("[Auth] Sending OTP to phone:", formattedPhone);
+    console.log("[Auth] Sending OTP to email:", email);
 
     try {
-      // Use phone-based OTP authentication (backend currently only supports phone OTP)
       const { apiPost } = await import('@/utils/api');
-      const response = await apiPost('/api/phone/send-otp', {
-        phoneNumber: formattedPhone,
-      });
+      
+      const requestBody: any = {
+        email: email.toLowerCase().trim(),
+        fullName: fullName.trim(),
+      };
+
+      if (phoneNumber) {
+        const formattedPhone = formatPhoneNumber(phoneNumber);
+        requestBody.phoneNumber = formattedPhone;
+      }
+
+      const response = await apiPost('/api/auth/email/send-otp', requestBody);
       
       if (response.success === false) {
         throw new Error(response.error || "Failed to send OTP");
@@ -115,7 +122,7 @@ export default function AuthScreen() {
       
       setOtpSent(true);
       setMode("otp");
-      setSuccessMessage(`OTP sent to ${formattedPhone} via SMS. Please check your messages.`);
+      setSuccessMessage(`OTP sent to ${email}. Please check your email inbox.`);
       setCountdown(60);
       
       const timer = setInterval(() => {
@@ -128,10 +135,10 @@ export default function AuthScreen() {
         });
       }, 1000);
 
-      console.log("✅ OTP sent successfully to", formattedPhone);
+      console.log("✅ OTP sent successfully to", email);
     } catch (err: any) {
       console.error("❌ Failed to send OTP:", err);
-      let errorMessage = "Failed to send OTP. Please check your phone number and try again.";
+      let errorMessage = "Failed to send OTP. Please check your email and try again.";
       
       if (err?.message) {
         errorMessage = err.message;
@@ -158,34 +165,32 @@ export default function AuthScreen() {
 
     setLoading(true);
     setError("");
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    console.log("[Auth] Verifying OTP for:", formattedPhone);
+    console.log("[Auth] Verifying OTP for:", email);
 
     try {
-      // Use phone-based OTP verification (backend currently only supports phone OTP)
       const { apiPost, setBearerToken } = await import('@/utils/api');
-      const response = await apiPost('/api/phone/verify-otp', {
-        phoneNumber: formattedPhone,
+      
+      const requestBody: any = {
+        email: email.toLowerCase().trim(),
         otpCode,
-        fullName: fullName || businessName,
+        fullName: fullName.trim(),
         deviceId: deviceFingerprint,
-      });
+      };
+
+      if (phoneNumber) {
+        const formattedPhone = formatPhoneNumber(phoneNumber);
+        requestBody.phoneNumber = formattedPhone;
+      }
+
+      const response = await apiPost('/api/auth/email/verify-otp', requestBody);
       
       if (response.success === false) {
         throw new Error(response.error || "Invalid OTP code");
       }
       
-      // Store the access token
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
         console.log("[Auth] Access token stored successfully");
-      }
-      
-      // Update user in AuthContext
-      if (response.user) {
-        // Manually trigger fetchUser to update the context
-        const { fetchUser } = await import('@/contexts/AuthContext');
-        // Since we can't call fetchUser directly, we'll navigate and let the auth guard handle it
       }
       
       console.log("✅ OTP verified successfully, redirecting to home...");
@@ -207,10 +212,6 @@ export default function AuthScreen() {
     }
   };
 
-
-
-
-
   const handleResendOTP = async () => {
     if (countdown > 0) return;
     
@@ -218,20 +219,19 @@ export default function AuthScreen() {
     setError("");
     setSuccessMessage("");
     setOtpCode("");
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    console.log("[Auth] Resending OTP to:", formattedPhone);
+    console.log("[Auth] Resending OTP to:", email);
 
     try {
       const { apiPost } = await import('@/utils/api');
-      const response = await apiPost('/api/phone/resend-otp', {
-        phoneNumber: formattedPhone,
+      const response = await apiPost('/api/auth/email/resend-otp', {
+        email: email.toLowerCase().trim(),
       });
       
       if (response.success === false) {
         throw new Error(response.error || "Failed to resend OTP");
       }
       
-      setSuccessMessage("New OTP sent! Please check your SMS messages.");
+      setSuccessMessage("New OTP sent! Please check your email inbox.");
       setCountdown(60);
       
       const timer = setInterval(() => {
@@ -244,7 +244,7 @@ export default function AuthScreen() {
         });
       }, 1000);
 
-      console.log("✅ OTP resent successfully to", formattedPhone);
+      console.log("✅ OTP resent successfully to", email);
     } catch (err: any) {
       console.error("❌ Failed to resend OTP:", err);
       let errorMessage = "Failed to resend OTP. Please try again.";
@@ -286,8 +286,7 @@ export default function AuthScreen() {
           </Text>
           <Text style={[styles.subtitle, { color: isDark ? colors.textSecondary : "#666" }]}>
             {mode === "email" && "Enter your details to get started"}
-            {mode === "otp" && "Enter the OTP code sent to your phone via SMS"}
-            {mode === "pin" && "Enter your PIN to verify this device"}
+            {mode === "otp" && "Enter the OTP code sent to your email"}
           </Text>
 
           {error ? (
@@ -306,6 +305,17 @@ export default function AuthScreen() {
             <React.Fragment>
               <TextInput
                 style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
+                placeholder="Email Address"
+                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <TextInput
+                style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
                 placeholder="Full Name"
                 placeholderTextColor={isDark ? colors.textSecondary : "#999"}
                 value={fullName}
@@ -315,16 +325,7 @@ export default function AuthScreen() {
 
               <TextInput
                 style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
-                placeholder="Business Name (Optional)"
-                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
-                value={businessName}
-                onChangeText={setBusinessName}
-                autoCapitalize="words"
-              />
-
-              <TextInput
-                style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
-                placeholder="Phone Number (e.g., 0241234567)"
+                placeholder="Phone Number (Optional, e.g., 0241234567)"
                 placeholderTextColor={isDark ? colors.textSecondary : "#999"}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
@@ -341,7 +342,7 @@ export default function AuthScreen() {
                 {loading ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.primaryButtonText}>Send OTP via SMS</Text>
+                  <Text style={styles.primaryButtonText}>Send OTP</Text>
                 )}
               </TouchableOpacity>
             </React.Fragment>
@@ -349,7 +350,7 @@ export default function AuthScreen() {
             <React.Fragment>
               <View style={styles.emailDisplay}>
                 <Text style={[styles.emailDisplayText, { color: textColor }]}>
-                  {formatPhoneNumber(phoneNumber)}
+                  {email}
                 </Text>
                 <TouchableOpacity onPress={() => setMode("email")}>
                   <Text style={[styles.changeEmailText, { color: colors.primary }]}>Change</Text>
@@ -481,17 +482,6 @@ const styles = StyleSheet.create({
     letterSpacing: 8,
     fontWeight: "600",
   },
-  pinInput: {
-    height: 60,
-    borderWidth: 2,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    fontSize: 24,
-    textAlign: "center",
-    letterSpacing: 8,
-    fontWeight: "600",
-  },
   emailDisplay: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -507,17 +497,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  pinInfoContainer: {
-    alignItems: "center",
-    marginBottom: 24,
-    padding: 16,
-  },
-  pinInfoText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 16,
-    lineHeight: 24,
-  },
   primaryButton: {
     height: 50,
     backgroundColor: colors.primary,
@@ -528,17 +507,6 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    height: 50,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 12,
-  },
-  secondaryButtonText: {
     fontSize: 16,
     fontWeight: "600",
   },
@@ -563,52 +531,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: "center",
     lineHeight: 18,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  modalContent: {
-    width: "100%",
-    maxWidth: 400,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 16,
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  modalText: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 12,
-  },
-  modalTextBold: {
-    fontSize: 16,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  modalFeatures: {
-    width: "100%",
-    marginBottom: 8,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  featureText: {
-    fontSize: 14,
-    marginLeft: 12,
-    flex: 1,
   },
 });
