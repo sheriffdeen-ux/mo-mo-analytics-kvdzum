@@ -15,8 +15,11 @@ import { relations } from "drizzle-orm";
 export const userExtended = pgTable("user_extended", {
   userId: text("user_id").primaryKey(),
   fullName: text("full_name"),
+  email: text("email").unique().notNull(), // Email for authentication
+  passwordHash: text("password_hash"), // Hashed password
+  passwordSalt: text("password_salt"), // Salt for password hashing
   businessName: text("business_name"),
-  phoneNumber: text("phone_number"), // Manual entry by user
+  phoneNumber: text("phone_number"), // Manual entry by user / profile only
   deviceFingerprint: text("device_fingerprint"),
   lastLoginDevice: text("last_login_device"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
@@ -43,7 +46,10 @@ export const userExtended = pgTable("user_extended", {
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
-});
+}, (table) => [
+  index("idx_user_extended_email").on(table.email),
+  index("idx_user_extended_user_id").on(table.userId),
+]);
 
 // Subscriptions table
 export const subscriptions = pgTable(

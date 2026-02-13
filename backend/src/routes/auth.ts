@@ -204,6 +204,7 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
             userId: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             fullName: body.fullName,
             phoneNumber: normalizedPhone,
+            email: `phone_${normalizedPhone.replace(/\D/g, '')}@momo-analytics.app`, // Generate email from phone
             subscriptionStatus: "trial",
             trialEndDate,
           })
