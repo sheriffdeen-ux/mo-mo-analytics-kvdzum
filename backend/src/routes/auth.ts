@@ -10,6 +10,7 @@ import {
   normalizePhoneNumber,
 } from "../utils/otp-service.js";
 import { sendOTPViaSMS } from "../utils/arkesel-sms.js";
+import { generateToken, getTokenExpirationSeconds } from "../utils/token-service.js";
 
 // In-memory rate limiting (for production, use Redis)
 const otpRateLimiter = new Map<
@@ -234,9 +235,9 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
         }
       }
 
-      // Create or get Better Auth user if needed
-      // Note: For phone-based auth, the user is created in userExtended table
-      // The frontend should use the returned user data to authenticate
+      // Generate authentication token (30-day expiration)
+      const accessToken = generateToken(userData.userId, normalizedPhone);
+      const expiresIn = getTokenExpirationSeconds();
 
       app.logger.info(
         { userId: userData.userId, phoneNumber: normalizedPhone },
@@ -249,12 +250,14 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
           id: userData.userId,
           fullName: userData.fullName,
           phoneNumber: userData.phoneNumber,
-          email: userData.phoneNumber, // Use phone as email for Better Auth
+          email: userData.phoneNumber, // Use phone as email identifier
           subscriptionStatus: userData.subscriptionStatus,
           trialEndDate: userData.trialEndDate,
         },
-        // Additional fields for frontend session management
-        authToken: Buffer.from(`${userData.userId}:${normalizedPhone}`).toString("base64"),
+        // Authentication token for API requests (30 days expiration)
+        accessToken,
+        expiresIn, // Token expiration in seconds
+        tokenType: "Bearer",
       };
     } catch (error) {
       app.logger.error(

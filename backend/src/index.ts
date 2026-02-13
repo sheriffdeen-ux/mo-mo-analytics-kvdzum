@@ -9,6 +9,7 @@ import { registerAnalyticsRoutes } from './routes/analytics.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerUserRoutes } from './routes/user.js';
 import { registerSubscriptionRoutes } from './routes/subscriptions.js';
 import { registerAlertRoutes } from './routes/alerts.js';
 import { registerLegalRoutes } from './routes/legal.js';
@@ -28,6 +29,7 @@ app.withAuth();
 // Register all routes
 registerHealthRoutes(app, app.fastify);
 registerAuthRoutes(app, app.fastify);
+registerUserRoutes(app, app.fastify);
 registerSubscriptionRoutes(app, app.fastify);
 registerTransactionRoutes(app, app.fastify);
 registerSettingsRoutes(app, app.fastify);
