@@ -94,7 +94,8 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
         );
         return {
           success: false,
-          error: "Failed to send OTP. Please try again.",
+          error: smsResult.error || "Failed to send OTP. Please try again.",
+          details: "SMS service unavailable. Please check your phone number or try again later.",
         };
       }
 
@@ -233,6 +234,10 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
         }
       }
 
+      // Create or get Better Auth user if needed
+      // Note: For phone-based auth, the user is created in userExtended table
+      // The frontend should use the returned user data to authenticate
+
       app.logger.info(
         { userId: userData.userId, phoneNumber: normalizedPhone },
         "User authenticated via OTP"
@@ -244,9 +249,12 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
           id: userData.userId,
           fullName: userData.fullName,
           phoneNumber: userData.phoneNumber,
+          email: userData.phoneNumber, // Use phone as email for Better Auth
           subscriptionStatus: userData.subscriptionStatus,
           trialEndDate: userData.trialEndDate,
         },
+        // Additional fields for frontend session management
+        authToken: Buffer.from(`${userData.userId}:${normalizedPhone}`).toString("base64"),
       };
     } catch (error) {
       app.logger.error(
@@ -297,9 +305,14 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
       const smsResult = await sendOTPViaSMS(normalizedPhone, otpCode);
 
       if (!smsResult.success) {
+        app.logger.error(
+          { phoneNumber: normalizedPhone, error: smsResult.error },
+          "Failed to resend OTP SMS"
+        );
         return {
           success: false,
-          error: "Failed to send OTP. Please try again.",
+          error: smsResult.error || "Failed to send OTP. Please try again.",
+          details: "SMS service unavailable. Please check your phone number or try again later.",
         };
       }
 

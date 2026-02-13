@@ -33,21 +33,38 @@ export async function sendSMS(
 
     const data = (await response.json()) as Record<string, any>;
 
-    if (response.ok && data.code === "ok") {
+    // Check for successful response (code: "ok")
+    if (data.code === "ok" && response.ok) {
       return {
         success: true,
-        messageId: data.message_id,
+        messageId: data.message_id || data.data?.message_id,
       };
+    }
+
+    // Handle various error codes from Arkesel
+    let errorMessage = data.message || "Failed to send SMS";
+
+    if (!response.ok) {
+      errorMessage = `SMS API Error (${response.status}): ${errorMessage}`;
+    }
+
+    if (data.code === "invalid_phone") {
+      errorMessage = "Invalid phone number format";
+    } else if (data.code === "insufficient_credit") {
+      errorMessage = "SMS service insufficient credit";
+    } else if (data.code === "api_error") {
+      errorMessage = "SMS service API error";
     }
 
     return {
       success: false,
-      error: data.message || "Failed to send SMS",
+      error: errorMessage,
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: `SMS service error: ${errorMessage}`,
     };
   }
 }
