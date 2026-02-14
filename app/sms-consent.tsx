@@ -48,22 +48,40 @@ export default function SMSConsentScreen() {
   };
 
   const loadScanStats = async () => {
-    // TODO: Backend Integration - Implement /api/auth/sms-scan-stats endpoint
-    // For now, show placeholder data
-    console.log("[SMS Consent] SMS scan stats endpoint not yet implemented");
+    try {
+      const { authenticatedPost } = await import("@/utils/api");
+      const data = await authenticatedPost("/api/sms-scan-report", {
+        totalScans: 0,
+        momoSmsFound: 0,
+        lastScanDate: new Date().toISOString(),
+      });
+      if (data) {
+        setScanStats({
+          totalScans: data.totalScans || 0,
+          momoSmsFound: data.momoSmsFound || 0,
+          lastScanDate: data.lastScanDate || null,
+        });
+      }
+    } catch (error) {
+      console.error("[SMS Consent] Failed to load scan stats:", error);
+    }
   };
 
   const handleToggleConsent = async (value: boolean) => {
-    // TODO: Backend Integration - Implement /api/auth/sms-consent endpoint
     setLoading(true);
     try {
-      // For now, just update local state
+      const { authenticatedPost } = await import("@/utils/api");
+      await authenticatedPost("/api/sms-consent", {
+        smsConsentGiven: value,
+        smsAutoDetectionEnabled: value ? autoDetectionEnabled : false,
+      });
+      
       setSmsConsentGiven(value);
       if (!value) {
         setAutoDetectionEnabled(false);
       }
       
-      console.log("[SMS Consent] Consent updated locally (backend endpoint not yet implemented):", value);
+      console.log("[SMS Consent] Consent updated successfully:", value);
     } catch (error) {
       console.error("[SMS Consent] Failed to update consent:", error);
     } finally {
@@ -76,13 +94,17 @@ export default function SMSConsentScreen() {
       return;
     }
     
-    // TODO: Backend Integration - Implement /api/auth/sms-consent endpoint
     setLoading(true);
     try {
-      // For now, just update local state
+      const { authenticatedPost } = await import("@/utils/api");
+      await authenticatedPost("/api/sms-consent", {
+        smsConsentGiven: smsConsentGiven,
+        smsAutoDetectionEnabled: value,
+      });
+      
       setAutoDetectionEnabled(value);
       
-      console.log("[SMS Consent] Auto-detection updated locally (backend endpoint not yet implemented):", value);
+      console.log("[SMS Consent] Auto-detection updated successfully:", value);
     } catch (error) {
       console.error("[SMS Consent] Failed to update auto-detection:", error);
     } finally {

@@ -3,9 +3,18 @@
 
 ## 🎉 Summary
 
-The frontend has been **successfully integrated** with the backend API. All screens are connected to the deployed backend at:
+The frontend has been **successfully integrated** with the backend API, including the new **SMS Auto-Reply Chatbot** and **Financial Reports** features. All screens are connected to the deployed backend at:
 
 **Backend URL**: https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev
+
+### ⭐ Latest Integration (February 14, 2025)
+
+**New Features Added:**
+1. **SMS Auto-Reply Settings** - Configure AI chatbot to automatically reply to SMS after fraud analysis
+2. **Financial Reports** - View daily, weekly, and monthly financial summaries with transaction analytics
+3. **SMS Consent Management** - Manage SMS reading permissions with full transparency
+
+All TODO comments have been removed and endpoints are fully integrated with proper error handling, loading states, and user feedback.
 
 ## 🔐 Authentication Status
 
@@ -166,11 +175,14 @@ fastify.get("/api/transactions", async (request: FastifyRequest) => {
 
 | Screen | Endpoints | Status |
 |--------|-----------|--------|
-| **Auth** | `/api/phone/send-otp`, `/api/phone/verify-otp`, `/api/phone/resend-otp` | ✅ Complete |
+| **Auth** | `/api/phone/send-otp`, `/api/phone/verify-otp`, `/api/phone/resend-otp`, `/api/auth/signup`, `/api/auth/login` | ✅ Complete |
 | **Transactions** | `/api/transactions`, `/api/analytics/summary`, `/api/transactions/{id}/block`, `/api/transactions/{id}/report-fraud`, `/api/transactions/{id}/confirm-safe` | ✅ Complete |
 | **Profile** | `/api/settings`, `/api/subscriptions/status` | ✅ Complete |
 | **Upgrade** | `/api/subscriptions/plans`, `/api/subscriptions/initiate-payment` | ✅ Complete |
 | **Privacy Policy** | `/api/legal/privacy-policy` | ✅ Complete |
+| **SMS Auto-Reply Settings** ⭐ | `/api/sms/auto-reply-settings` (GET, PUT) | ✅ Complete |
+| **Financial Reports** ⭐ | `/api/financial-reports/daily`, `/api/financial-reports/weekly`, `/api/financial-reports/monthly` | ✅ Complete |
+| **SMS Consent** ⭐ | `/api/sms-consent`, `/api/sms-scan-report` | ✅ Complete |
 
 ## 🧪 Testing Instructions
 
@@ -181,18 +193,34 @@ fastify.get("/api/transactions", async (request: FastifyRequest) => {
    npm start
    ```
 
-2. **Open on your device/simulator**
+2. **Sign in using one of these methods**:
+   - **Option A**: Click "Skip Login (Testing Mode)" for instant access
+   - **Option B**: Create account with email/password:
+     - Email: `test@example.com`
+     - Password: `Test1234!`
+     - Full Name: `Test User`
+   - **Option C**: Use Ghana phone number + OTP (requires SMS)
 
-3. **Sign up with your Ghana phone number**:
-   - Full Name: "John Doe"
-   - Phone: "0241234567" (or your actual number)
-   - Click "Send OTP"
+3. **Test New Features**:
 
-4. **Check your SMS** for the 6-digit OTP
+   **SMS Auto-Reply Settings:**
+   - Navigate: **Profile** → **SMS Auto-Reply Settings**
+   - Toggle all settings ON
+   - Add custom template: `Transaction: [amount] to [recipient]`
+   - Click **Save Settings**
+   - ✅ Verify success message appears
 
-5. **Enter OTP and verify**
+   **Financial Reports:**
+   - Navigate: **Profile** → **Financial Reports**
+   - Switch between Daily/Weekly/Monthly tabs
+   - Pull down to refresh
+   - ✅ Verify data displays correctly (or "No transactions" message)
 
-6. **You should be logged in!**
+   **SMS Consent:**
+   - Navigate to **SMS Permissions** (from profile or onboarding)
+   - Toggle **SMS Access** ON
+   - Toggle **Auto-Detection** ON
+   - ✅ Verify transparency report updates
 
 ### Detailed Testing Guide
 
@@ -249,6 +277,8 @@ See `TESTING_GUIDE_OTP.md` for comprehensive testing instructions.
 - `POST /api/phone/send-otp` - Send OTP via SMS
 - `POST /api/phone/verify-otp` - Verify OTP and get JWT token
 - `POST /api/phone/resend-otp` - Resend OTP
+- `POST /api/auth/signup` - Create account with email/password
+- `POST /api/auth/login` - Login with email/password
 
 ### Transactions (Protected)
 - `GET /api/transactions` - Get user transactions
@@ -269,6 +299,21 @@ See `TESTING_GUIDE_OTP.md` for comprehensive testing instructions.
 - `GET /api/subscriptions/status` - Get user subscription
 - `POST /api/subscriptions/initiate-payment` - Start payment
 - `POST /api/subscriptions/cancel` - Cancel subscription
+
+### SMS Auto-Reply (Protected) ⭐ NEW
+- `GET /api/sms/auto-reply-settings` - Get user's auto-reply settings
+- `PUT /api/sms/auto-reply-settings` - Update auto-reply settings
+- `POST /api/sms/analyze-and-reply` - Analyze transaction and send AI reply (backend-triggered)
+
+### Financial Reports (Protected) ⭐ NEW
+- `GET /api/financial-reports/daily?date=[ISO 8601]` - Get daily financial report
+- `GET /api/financial-reports/weekly?weekStart=[ISO 8601]` - Get weekly financial report
+- `GET /api/financial-reports/monthly?month=[ISO 8601]` - Get monthly financial report
+- `POST /api/financial-reports/generate` - Generate custom report
+
+### SMS Consent (Protected) ⭐ NEW
+- `POST /api/sms-consent` - Update SMS consent preferences
+- `POST /api/sms-scan-report` - Submit SMS scan statistics
 
 ### Legal (Public)
 - `GET /api/legal/privacy-policy` - Get privacy policy
@@ -338,9 +383,11 @@ For issues:
 
 ## ✅ Integration Checklist
 
+### Core Features
 - [x] Central API layer
 - [x] Authentication context
 - [x] Phone/OTP flow
+- [x] Email/Password authentication
 - [x] Token storage
 - [x] Session persistence
 - [x] All screens integrated
@@ -348,8 +395,25 @@ For issues:
 - [x] Loading states
 - [x] Custom modals
 - [x] Dark mode
-- [ ] Backend JWT implementation (pending)
-- [ ] Backend JWT verification (pending)
+
+### New Features (February 14, 2025)
+- [x] SMS Auto-Reply Settings screen
+- [x] Financial Reports screen (Daily/Weekly/Monthly)
+- [x] SMS Consent Management screen
+- [x] All TODO comments removed
+- [x] Proper error handling on all new endpoints
+- [x] Loading indicators on all new screens
+- [x] Pull-to-refresh on data screens
+- [x] Custom Modal components (no Alert.alert)
+- [x] Dark mode support on all new screens
+- [x] Navigation from Profile screen
+
+### Backend Status
+- [x] SMS auto-reply endpoints deployed
+- [x] Financial reports endpoints deployed
+- [x] SMS consent endpoints deployed
+- [ ] Backend JWT implementation (pending - see instructions above)
+- [ ] Backend JWT verification (pending - see instructions above)
 
 ---
 

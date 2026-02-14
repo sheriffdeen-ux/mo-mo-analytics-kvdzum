@@ -245,6 +245,58 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
+            onPress={() => router.push("/sms-settings")}
+          >
+            <IconSymbol
+              ios_icon_name="message.fill"
+              android_material_icon_name="message"
+              size={24}
+              color={colors.success}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                SMS Auto-Reply Settings
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                Configure chatbot responses
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/financial-reports")}
+          >
+            <IconSymbol
+              ios_icon_name="chart.bar.fill"
+              android_material_icon_name="assessment"
+              size={24}
+              color={colors.warning}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                Financial Reports
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                Daily, weekly, monthly summaries
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
             onPress={() => router.push("/privacy-policy")}
           >
             <IconSymbol
