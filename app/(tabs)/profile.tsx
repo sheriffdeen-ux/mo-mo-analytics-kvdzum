@@ -1,13 +1,12 @@
-
-import { GlassView } from "expo-glass-effect";
-import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, TextInput, ActivityIndicator, useColorScheme, Modal, Pressable } from "react-native";
-import { IconSymbol } from "@/components/IconSymbol";
-import { useAuth } from "@/contexts/AuthContext";
-import { colors } from "@/styles/commonStyles";
-import { useRouter, Link } from "expo-router";
-import { useTheme } from "@react-navigation/native";
 import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, Platform, TouchableOpacity, TextInput, ActivityIndicator, useColorScheme, Modal, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { IconSymbol } from "@/components/IconSymbol";
+import { GlassView } from "expo-glass-effect";
+import { useTheme } from "@react-navigation/native";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter, Link } from "expo-router";
+import { colors } from "@/styles/commonStyles";
 
 interface UserSettings {
   dailyLimit: number;
@@ -24,221 +23,282 @@ interface SubscriptionStatus {
   features: string[];
 }
 
-
-
 export default function ProfileScreen() {
+  const theme = useTheme();
+  const colorScheme = useColorScheme();
   const { user, signOut } = useAuth();
+  const router = useRouter();
+  
   const [settings, setSettings] = useState<UserSettings>({
     dailyLimit: 2000,
     blockedMerchants: [],
     trustedMerchants: [],
-    smsReadPreference: "momo_only",
+    smsReadPreference: 'momo_only',
   });
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [dailyLimitInput, setDailyLimitInput] = useState('2000');
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+
+  const isDark = colorScheme === 'dark';
+  const bgColor = isDark ? colors.backgroundDark : colors.background;
+  const textColor = isDark ? colors.textDark : colors.text;
+  const textSecondaryColor = isDark ? colors.textSecondaryDark : colors.textSecondary;
+  const cardColor = isDark ? colors.cardDark : colors.card;
 
   useEffect(() => {
     loadSettings();
     loadSubscriptionStatus();
   }, []);
 
-  const { colors: themeColors } = useTheme();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const router = useRouter();
-
   const loadSettings = async () => {
     try {
       const { authenticatedGet } = await import('@/utils/api');
-      const data = await authenticatedGet('/api/settings');
-      if (data) {
-        setSettings(data);
-      }
+      const response = await authenticatedGet<UserSettings>('/api/settings');
+      console.log('Settings loaded:', response);
+      setSettings(response);
+      setDailyLimitInput(response.dailyLimit.toString());
     } catch (error) {
-      console.error("[Profile] Failed to load settings:", error);
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadSubscriptionStatus = async () => {
     try {
       const { authenticatedGet } = await import('@/utils/api');
-      const data = await authenticatedGet('/api/subscriptions/status');
-      if (data) {
-        setSubscriptionStatus(data);
-      }
+      const response = await authenticatedGet<SubscriptionStatus>('/api/subscriptions/status');
+      console.log('Subscription status loaded:', response);
+      setSubscriptionStatus(response);
     } catch (error) {
-      console.error("[Profile] Failed to load subscription status:", error);
+      console.error('Failed to load subscription status:', error);
     }
   };
 
-
-
   const saveSettings = async () => {
-    setLoading(true);
+    setSaving(true);
     try {
-      const { authenticatedPost } = await import('@/utils/api');
-      await authenticatedPost('/api/update-settings', settings);
-      console.log("[Profile] Settings saved successfully");
+      const { authenticatedPut } = await import('@/utils/api');
+      const newLimit = parseFloat(dailyLimitInput);
+      if (isNaN(newLimit) || newLimit < 0) {
+        console.log('⚠️ Please enter a valid daily limit');
+        return;
+      }
+      
+      const response = await authenticatedPut<UserSettings>('/api/settings', {
+        dailyLimit: newLimit,
+        smsReadPreference: settings.smsReadPreference,
+      });
+      console.log('Settings saved:', response);
+      setSettings(response);
+      console.log('✅ Settings saved successfully!');
     } catch (error) {
-      console.error("[Profile] Failed to save settings:", error);
+      console.error('❌ Failed to save settings:', error);
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
   const handleSignOut = async () => {
     setShowSignOutModal(false);
-    setLoading(true);
     try {
       await signOut();
-      console.log("[Profile] User signed out successfully");
-      router.replace("/auth");
+      router.replace('/auth');
     } catch (error) {
-      console.error("[Profile] Sign out failed:", error);
-    } finally {
-      setLoading(false);
+      console.error('Sign out error:', error);
+      // Still navigate to auth even if API call fails
+      router.replace('/auth');
     }
   };
 
-
-
   const getSubscriptionBadgeColor = (status: string) => {
-    const statusLower = status.toLowerCase();
-    if (statusLower === "trial") return colors.warning;
-    if (statusLower === "pro" || statusLower === "business") return colors.success;
-    return colors.textSecondary;
+    switch (status) {
+      case 'trial':
+        return colors.warning;
+      case 'pro':
+      case 'business':
+        return colors.success;
+      case 'free':
+      default:
+        return colors.textSecondary;
+    }
   };
 
-
-
-  const formatDaysRemaining = () => {
-    if (!subscriptionStatus?.daysRemaining) return "";
-    const days = subscriptionStatus.daysRemaining;
-    if (days === 1) return "1 day remaining";
-    return `${days} days remaining`;
+  const formatDaysRemaining = (days?: number) => {
+    if (!days) return '';
+    if (days === 1) return '1 day left';
+    return `${days} days left`;
   };
 
-  const backgroundColor = isDark ? colors.background : "#f5f5f5";
-  const cardBg = isDark ? colors.cardBackground : "#fff";
-  const textColor = isDark ? colors.text : "#000";
-  const textSecondary = isDark ? colors.textSecondary : "#666";
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }]} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: textSecondaryColor }]}>
+            Loading profile...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor }]} edges={["top"]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Profile Header */}
-        <View style={[styles.profileHeader, { backgroundColor: cardBg }]}>
-          <View style={styles.avatarContainer}>
-            <IconSymbol
-              ios_icon_name="person.circle.fill"
-              android_material_icon_name="account-circle"
-              size={80}
-              color={colors.primary}
-            />
-          </View>
-          <Text style={[styles.userName, { color: textColor }]}>
-            {user?.fullName || user?.name || "User"}
-          </Text>
-          <Text style={[styles.userEmail, { color: textSecondary }]}>
-            {user?.email || user?.phoneNumber || ""}
-          </Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }]} edges={['top']}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[
+          styles.contentContainer,
+          Platform.OS !== 'ios' && styles.contentContainerWithTabBar
+        ]}
+      >
+        <GlassView style={[
+          styles.profileHeader,
+          Platform.OS !== 'ios' && { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+        ]} glassEffectStyle="regular">
+          <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="person" size={80} color={colors.primary} />
+          <Text style={[styles.name, { color: textColor }]}>{user?.fullName || user?.name || 'User'}</Text>
+          <Text style={[styles.email, { color: textSecondaryColor }]}>{user?.phoneNumber || user?.email || ''}</Text>
           
           {subscriptionStatus && (
-            <View style={[styles.subscriptionBadge, { backgroundColor: getSubscriptionBadgeColor(subscriptionStatus.subscriptionStatus) }]}>
-              <Text style={styles.subscriptionBadgeText}>
-                {subscriptionStatus.currentPlan.toUpperCase()}
-              </Text>
+            <View style={styles.subscriptionBadge}>
+              <View style={[styles.badge, { backgroundColor: getSubscriptionBadgeColor(subscriptionStatus.subscriptionStatus) }]}>
+                <Text style={styles.badgeText}>
+                  {subscriptionStatus.currentPlan.toUpperCase()}
+                </Text>
+              </View>
+              {subscriptionStatus.subscriptionStatus === 'trial' && subscriptionStatus.daysRemaining !== undefined && (
+                <Text style={[styles.trialText, { color: textSecondaryColor }]}>
+                  {formatDaysRemaining(subscriptionStatus.daysRemaining)}
+                </Text>
+              )}
             </View>
           )}
+        </GlassView>
+
+        {subscriptionStatus && subscriptionStatus.subscriptionStatus !== 'business' && (
+          <Link href="/upgrade" asChild>
+            <TouchableOpacity>
+              <GlassView style={[
+                styles.upgradeCard,
+                Platform.OS !== 'ios' && { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+              ]} glassEffectStyle="regular">
+                <View style={styles.upgradeContent}>
+                  <IconSymbol ios_icon_name="star.fill" android_material_icon_name="star" size={32} color={colors.warning} />
+                  <View style={styles.upgradeText}>
+                    <Text style={[styles.upgradeTitle, { color: textColor }]}>
+                      {subscriptionStatus.subscriptionStatus === 'trial' ? 'Enjoying your trial?' : 'Upgrade to Pro'}
+                    </Text>
+                    <Text style={[styles.upgradeSubtitle, { color: textSecondaryColor }]}>
+                      {subscriptionStatus.subscriptionStatus === 'trial' 
+                        ? 'Unlock all features permanently' 
+                        : 'Get advanced fraud protection & analytics'}
+                    </Text>
+                  </View>
+                  <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="arrow-forward" size={24} color={textSecondaryColor} />
+                </View>
+              </GlassView>
+            </TouchableOpacity>
+          </Link>
+        )}
+
+        <GlassView style={[
+          styles.section,
+          Platform.OS !== 'ios' && { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+        ]} glassEffectStyle="regular">
+          <Text style={[styles.sectionTitle, { color: textColor }]}>Settings</Text>
           
-          {subscriptionStatus?.daysRemaining && (
-            <Text style={[styles.trialText, { color: textSecondary }]}>
-              {formatDaysRemaining()}
-            </Text>
-          )}
-        </View>
-
-
-
-        {/* Quick Actions */}
-        <View style={[styles.card, { backgroundColor: cardBg }]}>
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/upgrade")}
-          >
-            <IconSymbol
-              ios_icon_name="star.fill"
-              android_material_icon_name="star"
-              size={24}
-              color={colors.warning}
-            />
-            <View style={styles.menuTextContainer}>
-              <Text style={[styles.menuTitle, { color: textColor }]}>
-                Upgrade Plan
-              </Text>
-              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
-                Unlock premium features
-              </Text>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <IconSymbol ios_icon_name="creditcard.fill" android_material_icon_name="credit-card" size={20} color={textSecondaryColor} />
+              <Text style={[styles.settingLabel, { color: textColor }]}>Daily Limit (GHS)</Text>
             </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={textSecondary}
+            <TextInput
+              style={[styles.input, { color: textColor, borderColor: colors.border }]}
+              value={dailyLimitInput}
+              onChangeText={setDailyLimitInput}
+              keyboardType="numeric"
+              placeholder="2000"
+              placeholderTextColor={textSecondaryColor}
             />
-          </TouchableOpacity>
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <IconSymbol ios_icon_name="message.fill" android_material_icon_name="message" size={20} color={textSecondaryColor} />
+              <Text style={[styles.settingLabel, { color: textColor }]}>SMS Reading</Text>
+            </View>
+            <View style={styles.radioGroup}>
+              <TouchableOpacity
+                style={styles.radioOption}
+                onPress={() => setSettings({ ...settings, smsReadPreference: 'momo_only' })}
+              >
+                <View style={[styles.radio, settings.smsReadPreference === 'momo_only' && styles.radioSelected]}>
+                  {settings.smsReadPreference === 'momo_only' && (
+                    <View style={styles.radioDot} />
+                  )}
+                </View>
+                <Text style={[styles.radioLabel, { color: textColor }]}>MoMo SMS Only</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.radioOption}
+                onPress={() => setSettings({ ...settings, smsReadPreference: 'all' })}
+              >
+                <View style={[styles.radio, settings.smsReadPreference === 'all' && styles.radioSelected]}>
+                  {settings.smsReadPreference === 'all' && (
+                    <View style={styles.radioDot} />
+                  )}
+                </View>
+                <Text style={[styles.radioLabel, { color: textColor }]}>All SMS</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => router.push("/privacy-policy")}
+            style={[styles.saveButton, saving && styles.buttonDisabled]}
+            onPress={saveSettings}
+            disabled={saving}
           >
-            <IconSymbol
-              ios_icon_name="hand.raised.fill"
-              android_material_icon_name="security"
-              size={24}
-              color={colors.primary}
-            />
-            <View style={styles.menuTextContainer}>
-              <Text style={[styles.menuTitle, { color: textColor }]}>
-                Privacy Policy
-              </Text>
-              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
-                How we protect your data
-              </Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={textSecondary}
-            />
+            {saving ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save Settings</Text>
+            )}
           </TouchableOpacity>
-        </View>
+        </GlassView>
 
-        {/* Sign Out Button */}
+        <GlassView style={[
+          styles.section,
+          Platform.OS !== 'ios' && { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+        ]} glassEffectStyle="regular">
+          <View style={styles.infoRow}>
+            <IconSymbol ios_icon_name="shield.fill" android_material_icon_name="security" size={20} color={textSecondaryColor} />
+            <Text style={[styles.infoText, { color: textColor }]}>Blocked Merchants: {settings.blockedMerchants.length}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <IconSymbol ios_icon_name="checkmark.shield.fill" android_material_icon_name="verified-user" size={20} color={textSecondaryColor} />
+            <Text style={[styles.infoText, { color: textColor }]}>Trusted Merchants: {settings.trustedMerchants.length}</Text>
+          </View>
+        </GlassView>
+
+        <Link href="/privacy-policy" asChild>
+          <TouchableOpacity style={[styles.linkButton]}>
+            <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="description" size={20} color={colors.primary} />
+            <Text style={[styles.linkButtonText, { color: colors.primary }]}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </Link>
+
         <TouchableOpacity
-          style={[styles.signOutButton, { backgroundColor: colors.error }]}
+          style={[styles.signOutButton]}
           onPress={() => setShowSignOutModal(true)}
-          disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <React.Fragment>
-              <IconSymbol
-                ios_icon_name="arrow.right.square.fill"
-                android_material_icon_name="logout"
-                size={24}
-                color="#fff"
-              />
-              <Text style={styles.signOutButtonText}>Sign Out</Text>
-            </React.Fragment>
-          )}
+          <IconSymbol ios_icon_name="arrow.right.square.fill" android_material_icon_name="logout" size={20} color="#fff" />
+          <Text style={styles.signOutButtonText}>Sign Out</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Sign Out Confirmation Modal */}
       <Modal
         visible={showSignOutModal}
         transparent
@@ -246,159 +306,269 @@ export default function ProfileScreen() {
         onRequestClose={() => setShowSignOutModal(false)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setShowSignOutModal(false)}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-            <Text style={[styles.modalTitle, { color: textColor }]}>
-              Sign Out
-            </Text>
-            <Text style={[styles.modalText, { color: textSecondary }]}>
+          <Pressable style={[styles.modalContent, { backgroundColor: cardColor }]} onPress={(e) => e.stopPropagation()}>
+            <Text style={[styles.modalTitle, { color: textColor }]}>Sign Out</Text>
+            <Text style={[styles.modalMessage, { color: textSecondaryColor }]}>
               Are you sure you want to sign out?
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: colors.error }]}
-                onPress={handleSignOut}
-              >
-                <Text style={styles.modalButtonText}>Sign Out</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: isDark ? colors.cardBackground : "#f0f0f0" }]}
+                style={[styles.modalButton, styles.modalButtonCancel]}
                 onPress={() => setShowSignOutModal(false)}
               >
                 <Text style={[styles.modalButtonText, { color: textColor }]}>Cancel</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm]}
+                onPress={handleSignOut}
+              >
+                <Text style={[styles.modalButtonText, { color: '#fff' }]}>Sign Out</Text>
+              </TouchableOpacity>
             </View>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    // backgroundColor handled dynamically
+  },
   container: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+  },
+  contentContainer: {
+    padding: 20,
+  },
+  contentContainerWithTabBar: {
+    paddingBottom: 100, // Extra padding for floating tab bar
   },
   profileHeader: {
-    borderRadius: 16,
-    padding: 24,
-    alignItems: "center",
+    alignItems: 'center',
+    borderRadius: 12,
+    padding: 32,
     marginBottom: 16,
+    gap: 12,
   },
-  avatarContainer: {
-    marginBottom: 16,
-  },
-  userName: {
+  name: {
     fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 4,
+    fontWeight: 'bold',
+    // color handled dynamically
   },
-  userEmail: {
+  email: {
     fontSize: 16,
+    // color handled dynamically
+  },
+  section: {
+    borderRadius: 12,
+    padding: 20,
+    gap: 12,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     marginBottom: 12,
   },
-  subscriptionBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  subscriptionBadgeText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-  trialText: {
-    fontSize: 14,
-    marginTop: 8,
-  },
-  card: {
-    borderRadius: 12,
-    padding: 16,
+  settingRow: {
     marginBottom: 16,
   },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
+  settingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
   },
-
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  menuTextContainer: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  menuTitle: {
+  settingLabel: {
     fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 4,
+    fontWeight: '600',
   },
-  menuSubtitle: {
-    fontSize: 14,
+  input: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+  },
+  saveButton: {
+    height: 44,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  saveButtonText: {
+    color: '#1A1F2E',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  infoText: {
+    fontSize: 16,
+    // color handled dynamically
+  },
+  linkButton: {
+    height: 50,
+    backgroundColor: 'transparent',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  linkButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   signOutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    borderRadius: 12,
+    height: 50,
+    backgroundColor: colors.error,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 32,
   },
   signOutButtonText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
+    fontWeight: '600',
+  },
+  subscriptionBadge: {
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  badge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  badgeText: {
+    color: '#1A1F2E',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  trialText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  upgradeCard: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  upgradeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  upgradeText: {
+    flex: 1,
+  },
+  upgradeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  upgradeSubtitle: {
+    fontSize: 14,
+  },
+  radioGroup: {
+    gap: 12,
+    marginTop: 8,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioSelected: {
+    borderColor: colors.primary,
+  },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  radioLabel: {
+    fontSize: 16,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
-    width: "100%",
+    width: '80%',
     maxWidth: 400,
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 24,
-    alignItems: "center",
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 16,
+    fontWeight: '700',
     marginBottom: 12,
   },
-  modalText: {
+  modalMessage: {
     fontSize: 16,
-    textAlign: "center",
     marginBottom: 24,
   },
   modalButtons: {
-    flexDirection: "row",
+    flexDirection: 'row',
     gap: 12,
-    width: "100%",
   },
   modalButton: {
     flex: 1,
-    padding: 16,
+    height: 44,
     borderRadius: 8,
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.border,
+  },
+  modalButtonConfirm: {
+    backgroundColor: colors.error,
   },
   modalButtonText: {
-    color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: '600',
   },
-
 });

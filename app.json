@@ -4,40 +4,31 @@
     "slug": "MoMo Analytics",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
+    "icon": "./assets/images/app-icon-tdb.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
+      "image": "./assets/images/app-icon-tdb.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.Natively",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false,
-        "NSUserTrackingUsageDescription": "This app uses your device ID to help us understand how you use the app and improve your experience."
-      },
-      "usesIcloudStorage": true
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
-        "backgroundColor": "#FFFFFF"
+        "foregroundImage": "./assets/images/app-icon-tdb.png",
+        "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively",
-      "permissions": [
-        "android.permission.RECEIVE_SMS",
-        "android.permission.READ_SMS",
-        "android.permission.INTERNET",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.POST_NOTIFICATIONS"
-      ]
+      "package": "com.anonymous.Natively"
     },
     "web": {
-      "favicon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
+      "favicon": "./assets/images/final_quest_240x240.png",
       "bundler": "metro"
     },
     "plugins": [

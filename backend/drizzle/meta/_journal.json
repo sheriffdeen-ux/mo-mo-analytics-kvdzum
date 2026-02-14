@@ -15,20 +15,6 @@
       "when": 1770952449016,
       "tag": "20260213031409_illegal_puff_adder",
       "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1770998148293,
-      "tag": "20260213155548_hot_anthem",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1771000476598,
-      "tag": "20260213163436_brainy_living_tribunal",
-      "breakpoints": true
     }
   ]
 }
