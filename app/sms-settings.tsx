@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 interface AutoReplySettings {
   autoReplyEnabled: boolean;
-  replyOnlyNoFraud: boolean;
+  replyOnlyOnFraud: boolean;
   includeDailySummary: boolean;
   includeWeeklySummary: boolean;
   includeMonthlySummary: boolean;
@@ -38,7 +38,7 @@ export default function SMSSettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<AutoReplySettings>({
     autoReplyEnabled: true,
-    replyOnlyNoFraud: true,
+    replyOnlyOnFraud: true,
     includeDailySummary: true,
     includeWeeklySummary: false,
     includeMonthlySummary: false,
@@ -138,7 +138,6 @@ export default function SMSSettingsScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
         <View style={[styles.headerCard, { backgroundColor: cardBg }]}>
           <IconSymbol
             ios_icon_name="message.badge.fill"
@@ -154,7 +153,6 @@ export default function SMSSettingsScreen() {
           </Text>
         </View>
 
-        {/* Info Box */}
         <View
           style={[
             styles.infoBox,
@@ -172,7 +170,6 @@ export default function SMSSettingsScreen() {
           </Text>
         </View>
 
-        {/* Auto-Reply Settings */}
         <View style={[styles.card, { backgroundColor: cardBg }]}>
           <Text style={[styles.cardTitle, { color: textColor }]}>
             Auto-Reply Settings
@@ -203,23 +200,22 @@ export default function SMSSettingsScreen() {
           >
             <View style={styles.settingTextContainer}>
               <Text style={[styles.settingTitle, { color: textColor }]}>
-                Reply Only If No Fraud
+                Only Send Replies When Fraud Is Detected
               </Text>
               <Text style={[styles.settingText, { color: textSecondary }]}>
-                Only send replies when no fraud is detected
+                Send replies only for suspicious transactions
               </Text>
             </View>
             <Switch
-              value={settings.replyOnlyNoFraud}
-              onValueChange={() => handleToggleSetting("replyOnlyNoFraud")}
+              value={settings.replyOnlyOnFraud}
+              onValueChange={() => handleToggleSetting("replyOnlyOnFraud")}
               disabled={!settings.autoReplyEnabled}
               trackColor={{ false: "#767577", true: colors.primary }}
-              thumbColor={settings.replyOnlyNoFraud ? "#fff" : "#f4f3f4"}
+              thumbColor={settings.replyOnlyOnFraud ? "#fff" : "#f4f3f4"}
             />
           </View>
         </View>
 
-        {/* Summary Inclusions */}
         <View style={[styles.card, { backgroundColor: cardBg }]}>
           <Text style={[styles.cardTitle, { color: textColor }]}>
             Include Financial Summaries
@@ -298,7 +294,6 @@ export default function SMSSettingsScreen() {
           </View>
         </View>
 
-        {/* Custom Template */}
         <View style={[styles.card, { backgroundColor: cardBg }]}>
           <Text style={[styles.cardTitle, { color: textColor }]}>
             Custom Reply Template
@@ -346,20 +341,22 @@ export default function SMSSettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Example Reply */}
         <View style={[styles.card, { backgroundColor: cardBg, borderColor: colors.success, borderWidth: 2 }]}>
           <Text style={[styles.cardTitle, { color: textColor }]}>
             Example Auto-Reply
           </Text>
           <View style={[styles.exampleBox, { backgroundColor: isDark ? "#1a1a1a" : "#f9f9f9" }]}>
             <Text style={[styles.exampleText, { color: textColor }]}>
-              Transaction confirmed: Sent GHS 50.00 to John Doe. Ref: MTN123456. Time: 2:30 PM. Balance: GHS 450.00.
-              {settings.includeDailySummary && " Today's total: Sent GHS 150, Received GHS 200."}
+              Amount: GHS 50.00{'\n'}
+              Recipient: John Doe{'\n'}
+              Time: 2024-02-14 at 14:30:00{'\n'}
+              Risk Score: 15/100{'\n'}
+              ✅ This transaction appears low risk.
+              {settings.includeDailySummary && "\n\nToday's total: Sent GHS 150, Received GHS 200."}
             </Text>
           </View>
         </View>
 
-        {/* Save Button */}
         <TouchableOpacity
           style={[styles.saveButton, { backgroundColor: colors.primary }]}
           onPress={saveSettings}
@@ -394,7 +391,6 @@ export default function SMSSettingsScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Custom Template Modal */}
       <Modal
         visible={showTemplateModal}
         transparent
@@ -413,7 +409,7 @@ export default function SMSSettingsScreen() {
               Custom Reply Template
             </Text>
             <Text style={[styles.modalSubtitle, { color: textSecondary }]}>
-              Use placeholders: [amount], [recipient], [reference], [time], [balance]
+              Use placeholders: {'{amount}'}, {'{recipient}'}, {'{time}'}, {'{score}'}
             </Text>
 
             <TextInput

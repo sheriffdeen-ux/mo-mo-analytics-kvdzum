@@ -64,7 +64,12 @@ export default function UpgradeScreen() {
       const { apiGet } = await import("@/utils/api");
       const response = await apiGet<{ plans: SubscriptionPlan[] }>("/api/subscriptions/plans");
       console.log("[Upgrade] Plans loaded:", response.plans);
-      setPlans(response.plans);
+      
+      // Filter out yearly plans (pro-yearly, business-yearly)
+      const filteredPlans = response.plans.filter(plan => !plan.id.includes('yearly'));
+      console.log("[Upgrade] Filtered plans (no yearly):", filteredPlans);
+      
+      setPlans(filteredPlans);
     } catch (error) {
       console.error("[Upgrade] Failed to load plans:", error);
     } finally {
@@ -306,7 +311,7 @@ export default function UpgradeScreen() {
           <React.Fragment>
             <Text style={[styles.sectionTitle, { color: textColor }]}>Pro</Text>
             <Text style={[styles.sectionSubtitle, { color: textSecondaryColor }]}>
-              Advanced protection + financial analytics
+              Advanced protection + financial analytics (Monthly billing only)
             </Text>
             {proPlans.map((plan) => renderPlanCard(plan))}
           </React.Fragment>

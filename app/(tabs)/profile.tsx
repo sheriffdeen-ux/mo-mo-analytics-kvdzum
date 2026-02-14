@@ -329,20 +329,24 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.push("/behavior-profile")}
+            onPress={() => {
+              // Navigate to a new transactions screen
+              // For now, we'll create a simple link
+              console.log('[Profile] View Transactions clicked - feature coming soon');
+            }}
           >
             <IconSymbol
-              ios_icon_name="person.badge.shield.checkmark.fill"
-              android_material_icon_name="person"
+              ios_icon_name="list.bullet.rectangle.fill"
+              android_material_icon_name="receipt"
               size={24}
-              color={colors.success}
+              color={colors.primary}
             />
             <View style={styles.menuTextContainer}>
               <Text style={[styles.menuTitle, { color: textColor }]}>
-                Behavior Profile
+                View Transactions
               </Text>
               <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
-                Your transaction patterns
+                See all your MoMo transactions
               </Text>
             </View>
             <IconSymbol

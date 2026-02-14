@@ -5,281 +5,111 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
   useColorScheme,
-  Platform,
-  Modal,
-  Pressable,
+  TouchableOpacity,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { useTheme } from '@react-navigation/native';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { useAuth } from '@/contexts/AuthContext';
+import { authenticatedGet } from '@/utils/api';
 
-interface Transaction {
-  id: string;
-  provider: string;
-  transactionType: string;
-  amount: number;
-  recipient: string;
-  balance: number;
-  transactionDate: string;
-  riskScore: number;
-  riskLevel: string;
-  riskReasons: string[];
-  isBlocked?: boolean;
-  isFraudReported?: boolean;
+interface LayerPerformance {
+  layer: number;
+  layerName: string;
+  passRate: number;
+  avgProcessingTime: number;
 }
 
-export default function TransactionsScreen() {
-  const theme = useTheme();
-  const colorScheme = useColorScheme();
+interface DashboardData {
+  totalTransactions: number;
+  fraudDetected: number;
+  moneyProtected: number;
+  alertsGenerated: number;
+  layerPerformance: LayerPerformance[];
+  recentAlerts: any[];
+  riskDistribution: {
+    LOW: number;
+    MEDIUM: number;
+    HIGH: number;
+    CRITICAL: number;
+  };
+}
+
+export default function SecurityDashboardScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const { user, loading: authLoading } = useAuth();
-  
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [summary, setSummary] = useState({
-    totalSent: 0,
-    totalReceived: 0,
-    fraudDetected: 0,
-  });
-  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
-  const [showActionModal, setShowActionModal] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const isDark = colorScheme === 'dark';
   const bgColor = isDark ? colors.backgroundDark : colors.background;
   const textColor = isDark ? colors.textDark : colors.text;
   const textSecondaryColor = isDark ? colors.textSecondaryDark : colors.textSecondary;
   const cardColor = isDark ? colors.cardDark : colors.card;
 
   useEffect(() => {
-    console.log('TransactionsScreen mounted, user:', user);
+    console.log('[Security Dashboard] Screen mounted');
     if (!authLoading && !user) {
       console.log('No user found, redirecting to auth');
       router.replace('/auth');
     } else if (user) {
-      console.log('User authenticated, loading transactions');
-      loadTransactions();
-      loadSummary();
+      console.log('User authenticated, loading dashboard');
+      loadDashboard();
     }
   }, [user, authLoading]);
 
-  const loadTransactions = async () => {
-    console.log('Loading transactions...');
+  const loadDashboard = async () => {
+    console.log('[Security Dashboard] Loading data...');
+    setError(null);
     try {
-      const { authenticatedGet } = await import('@/utils/api');
-      const response = await authenticatedGet<{
-        transactions: Transaction[];
-        total: number;
-        page: number;
-        totalPages: number;
-      }>('/api/transactions?page=1&limit=20');
+      const response = await authenticatedGet<DashboardData>('/api/dashboard/security-overview');
+      console.log('[Security Dashboard] Data loaded:', response);
       
-      console.log('Transactions loaded:', response);
-      
-      // Handle both array and object responses
-      if (Array.isArray(response)) {
-        setTransactions(response);
-      } else if (response.transactions && Array.isArray(response.transactions)) {
-        setTransactions(response.transactions);
-      } else {
-        console.warn('Unexpected response format:', response);
-        setTransactions([]);
-      }
-    } catch (error: any) {
-      console.error('Failed to load transactions:', error);
-      
-      // Check if it's a network error or auth error
-      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
-        console.log('Authentication error - user may need to re-login');
-      } else if (error?.message?.includes('Network')) {
-        console.log('Network error - showing empty state');
+      // Validate response structure
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response from server');
       }
       
-      // Show empty state on error
-      setTransactions([]);
+      // Ensure all required fields exist with defaults
+      const validatedData: DashboardData = {
+        totalTransactions: response.totalTransactions || 0,
+        fraudDetected: response.fraudDetected || 0,
+        moneyProtected: response.moneyProtected || 0,
+        alertsGenerated: response.alertsGenerated || 0,
+        layerPerformance: Array.isArray(response.layerPerformance) ? response.layerPerformance : [],
+        recentAlerts: Array.isArray(response.recentAlerts) ? response.recentAlerts : [],
+        riskDistribution: {
+          LOW: response.riskDistribution?.LOW || 0,
+          MEDIUM: response.riskDistribution?.MEDIUM || 0,
+          HIGH: response.riskDistribution?.HIGH || 0,
+          CRITICAL: response.riskDistribution?.CRITICAL || 0,
+        },
+      };
+      
+      setData(validatedData);
+    } catch (err: any) {
+      console.error('[Security Dashboard] Failed to load data:', err);
+      const errorMessage = err?.message || 'Failed to load dashboard data';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadSummary = async () => {
-    console.log('Loading summary...');
-    try {
-      const { authenticatedGet } = await import('@/utils/api');
-      const response = await authenticatedGet<{
-        totalSent: number;
-        totalReceived: number;
-        dailyStats: any[];
-        weeklyStats: any[];
-        monthlyStats: any[];
-        fraudDetected: number;
-        moneyProtected: number;
-      }>('/api/analytics/summary');
-      
-      console.log('Summary loaded:', response);
-      setSummary({
-        totalSent: response.totalSent || 0,
-        totalReceived: response.totalReceived || 0,
-        fraudDetected: response.fraudDetected || 0,
-      });
-    } catch (error: any) {
-      console.error('Failed to load summary:', error);
-      
-      // Check if it's a network error or auth error
-      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
-        console.log('Authentication error - user may need to re-login');
-      } else if (error?.message?.includes('Network')) {
-        console.log('Network error - keeping default summary values');
-      }
-      
-      // Keep default values on error
-      setSummary({
-        totalSent: 0,
-        totalReceived: 0,
-        fraudDetected: 0,
-      });
-    }
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadTransactions();
-    await loadSummary();
+    await loadDashboard();
     setRefreshing(false);
   };
 
-  const getRiskColor = (riskLevel: string) => {
-    switch (riskLevel) {
-      case 'LOW':
-        return colors.riskLow;
-      case 'MEDIUM':
-        return colors.riskMedium;
-      case 'HIGH':
-        return colors.riskHigh;
-      case 'CRITICAL':
-        return colors.riskCritical;
-      default:
-        return colors.textSecondary;
-    }
-  };
 
-  const formatAmount = (amount: number) => {
-    const formattedAmount = amount.toFixed(2);
-    return formattedAmount;
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 60) {
-      const minsText = `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
-      return minsText;
-    } else if (diffHours < 24) {
-      const hoursText = `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-      return hoursText;
-    } else if (diffDays < 7) {
-      const daysText = `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-      return daysText;
-    } else {
-      const formatted = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
-      return formatted;
-    }
-  };
-
-  const handleTransactionPress = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setShowActionModal(true);
-  };
-
-  const handleBlockMerchant = async () => {
-    if (!selectedTransaction) return;
-    
-    setActionLoading(true);
-    try {
-      const { authenticatedPost } = await import('@/utils/api');
-      await authenticatedPost(`/api/transactions/${selectedTransaction.id}/block`, {});
-      console.log('Merchant blocked successfully');
-      
-      // Update local state
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === selectedTransaction.id 
-            ? { ...t, isBlocked: true } 
-            : t
-        )
-      );
-      
-      setShowActionModal(false);
-      console.log('✅ Merchant blocked successfully!');
-    } catch (error) {
-      console.error('❌ Failed to block merchant:', error);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleReportFraud = async () => {
-    if (!selectedTransaction) return;
-    
-    setActionLoading(true);
-    try {
-      const { authenticatedPost } = await import('@/utils/api');
-      const response = await authenticatedPost<{ success: boolean; newSensitivity: number }>(
-        `/api/transactions/${selectedTransaction.id}/report-fraud`,
-        {}
-      );
-      console.log('Fraud reported successfully, new sensitivity:', response.newSensitivity);
-      
-      // Update local state
-      setTransactions(prev => 
-        prev.map(t => 
-          t.id === selectedTransaction.id 
-            ? { ...t, isFraudReported: true } 
-            : t
-        )
-      );
-      
-      setShowActionModal(false);
-      console.log('✅ Fraud reported! Alert sensitivity increased for better protection.');
-    } catch (error) {
-      console.error('❌ Failed to report fraud:', error);
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleConfirmSafe = async () => {
-    if (!selectedTransaction) return;
-    
-    setActionLoading(true);
-    try {
-      const { authenticatedPost } = await import('@/utils/api');
-      const response = await authenticatedPost<{ success: boolean; newSensitivity: number }>(
-        `/api/transactions/${selectedTransaction.id}/confirm-safe`,
-        {}
-      );
-      console.log('Transaction confirmed as safe, new sensitivity:', response.newSensitivity);
-      
-      setShowActionModal(false);
-      console.log('✅ Transaction confirmed as safe. Your AI is learning your patterns.');
-    } catch (error) {
-      console.error('❌ Failed to confirm safe:', error);
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   if (authLoading || loading) {
     return (
@@ -287,7 +117,7 @@ export default function TransactionsScreen() {
         <Stack.Screen
           options={{
             headerShown: true,
-            title: 'MoMo Analytics',
+            title: '7-Layer Security',
             headerStyle: { backgroundColor: bgColor },
             headerTintColor: textColor,
           }}
@@ -295,28 +125,69 @@ export default function TransactionsScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: textSecondaryColor }]}>
-            Loading transactions...
+            Loading security dashboard...
           </Text>
         </View>
       </View>
     );
   }
 
-  const totalSentText = formatAmount(summary.totalSent);
-  const totalReceivedText = formatAmount(summary.totalReceived);
-  const fraudDetectedText = summary.fraudDetected.toString();
+  if (error || !data) {
+    return (
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
+        <Stack.Screen
+          options={{
+            headerShown: true,
+            title: '7-Layer Security',
+            headerStyle: { backgroundColor: bgColor },
+            headerTintColor: textColor,
+          }}
+        />
+        <View style={styles.loadingContainer}>
+          <IconSymbol
+            ios_icon_name="exclamationmark.triangle.fill"
+            android_material_icon_name="warning"
+            size={64}
+            color={colors.warning}
+          />
+          <Text style={[styles.errorText, { color: textColor }]}>
+            {error || 'Failed to load dashboard'}
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={loadDashboard}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.text }]}>
+              Retry
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const totalTransactionsText = data.totalTransactions.toString();
+  const fraudDetectedText = data.fraudDetected.toString();
+  const moneyProtectedText = data.moneyProtected.toFixed(2);
+  const alertsGeneratedText = data.alertsGenerated.toString();
+
+  const totalRisk = data.riskDistribution.LOW + data.riskDistribution.MEDIUM + data.riskDistribution.HIGH + data.riskDistribution.CRITICAL;
+  const lowPercent = totalRisk > 0 ? ((data.riskDistribution.LOW / totalRisk) * 100).toFixed(0) : '0';
+  const mediumPercent = totalRisk > 0 ? ((data.riskDistribution.MEDIUM / totalRisk) * 100).toFixed(0) : '0';
+  const highPercent = totalRisk > 0 ? ((data.riskDistribution.HIGH / totalRisk) * 100).toFixed(0) : '0';
+  const criticalPercent = totalRisk > 0 ? ((data.riskDistribution.CRITICAL / totalRisk) * 100).toFixed(0) : '0';
 
   return (
     <View style={[styles.container, { backgroundColor: bgColor }]}>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: 'MoMo Analytics',
+          title: '7-Layer Security',
           headerStyle: { backgroundColor: bgColor },
           headerTintColor: textColor,
         }}
       />
-      
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -324,288 +195,295 @@ export default function TransactionsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Summary Cards */}
-        <View style={styles.summaryContainer}>
-          <View style={[styles.summaryCard, { backgroundColor: cardColor }]}>
-            <IconSymbol
-              ios_icon_name="arrow.up.circle.fill"
-              android_material_icon_name="arrow-upward"
-              size={24}
-              color={colors.error}
-            />
-            <Text style={[styles.summaryLabel, { color: textSecondaryColor }]}>
-              Total Sent
-            </Text>
-            <Text style={[styles.summaryAmount, { color: textColor }]}>
-              GHS {totalSentText}
-            </Text>
-          </View>
-
-          <View style={[styles.summaryCard, { backgroundColor: cardColor }]}>
-            <IconSymbol
-              ios_icon_name="arrow.down.circle.fill"
-              android_material_icon_name="arrow-downward"
-              size={24}
-              color={colors.success}
-            />
-            <Text style={[styles.summaryLabel, { color: textSecondaryColor }]}>
-              Total Received
-            </Text>
-            <Text style={[styles.summaryAmount, { color: textColor }]}>
-              GHS {totalReceivedText}
-            </Text>
-          </View>
-
-          <View style={[styles.summaryCard, { backgroundColor: cardColor }]}>
-            <IconSymbol
-              ios_icon_name="shield.fill"
-              android_material_icon_name="security"
-              size={24}
-              color={colors.warning}
-            />
-            <Text style={[styles.summaryLabel, { color: textSecondaryColor }]}>
-              Fraud Detected
-            </Text>
-            <Text style={[styles.summaryAmount, { color: textColor }]}>
-              {fraudDetectedText}
-            </Text>
-          </View>
-        </View>
-
-        {/* Transactions List */}
-        <View style={styles.transactionsHeader}>
-          <Text style={[styles.sectionTitle, { color: textColor }]}>
-            Recent Transactions
+        {/* Header */}
+        <View style={[styles.headerCard, { backgroundColor: cardColor }]}>
+          <IconSymbol
+            ios_icon_name="shield.checkered"
+            android_material_icon_name="security"
+            size={64}
+            color={colors.primary}
+          />
+          <Text style={[styles.headerTitle, { color: textColor }]}>
+            7-Layer Security Framework
+          </Text>
+          <Text style={[styles.headerSubtitle, { color: textSecondaryColor }]}>
+            Real-time fraud detection and prevention
           </Text>
         </View>
 
-        {transactions.length === 0 ? (
-          <View style={[styles.emptyContainer, { backgroundColor: cardColor }]}>
+        {/* Stats Grid */}
+        <View style={styles.statsGrid}>
+          <View style={[styles.statCard, { backgroundColor: cardColor }]}>
             <IconSymbol
-              ios_icon_name="tray.fill"
-              android_material_icon_name="inbox"
-              size={48}
-              color={textSecondaryColor}
+              ios_icon_name="chart.bar.fill"
+              android_material_icon_name="bar-chart"
+              size={32}
+              color={colors.primary}
             />
-            <Text style={[styles.emptyText, { color: textSecondaryColor }]}>
-              No transactions yet
+            <Text style={[styles.statValue, { color: textColor }]}>
+              {totalTransactionsText}
             </Text>
-            <Text style={[styles.emptySubtext, { color: textSecondaryColor }]}>
-              Your MoMo transactions will appear here
+            <Text style={[styles.statLabel, { color: textSecondaryColor }]}>
+              Transactions
             </Text>
           </View>
-        ) : (
-          transactions.map((transaction) => {
-            const riskColor = getRiskColor(transaction.riskLevel);
-            const amountText = formatAmount(transaction.amount);
-            const balanceText = formatAmount(transaction.balance);
-            const dateText = formatDate(transaction.transactionDate);
-            const isSent = transaction.transactionType === 'sent';
-            const typeIcon = isSent ? 'arrow-upward' : 'arrow-downward';
-            const typeColor = isSent ? colors.error : colors.success;
 
-            return (
-              <TouchableOpacity
-                key={transaction.id}
-                style={[styles.transactionCard, { backgroundColor: cardColor }]}
-                onPress={() => handleTransactionPress(transaction)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.transactionHeader}>
-                  <View style={styles.transactionLeft}>
-                    <View style={[styles.providerBadge, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.providerText}>
-                        {transaction.provider}
-                      </Text>
-                    </View>
-                    <View style={[styles.riskBadge, { backgroundColor: riskColor }]}>
-                      <Text style={styles.riskText}>
-                        {transaction.riskLevel}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.dateText, { color: textSecondaryColor }]}>
-                    {dateText}
+          <View style={[styles.statCard, { backgroundColor: cardColor }]}>
+            <IconSymbol
+              ios_icon_name="exclamationmark.shield.fill"
+              android_material_icon_name="warning"
+              size={32}
+              color={colors.error}
+            />
+            <Text style={[styles.statValue, { color: textColor }]}>
+              {fraudDetectedText}
+            </Text>
+            <Text style={[styles.statLabel, { color: textSecondaryColor }]}>
+              Fraud Detected
+            </Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: cardColor }]}>
+            <IconSymbol
+              ios_icon_name="shield.checkmark.fill"
+              android_material_icon_name="verified-user"
+              size={32}
+              color={colors.success}
+            />
+            <Text style={[styles.statValue, { color: textColor }]}>
+              GHS {moneyProtectedText}
+            </Text>
+            <Text style={[styles.statLabel, { color: textSecondaryColor }]}>
+              Protected
+            </Text>
+          </View>
+
+          <View style={[styles.statCard, { backgroundColor: cardColor }]}>
+            <IconSymbol
+              ios_icon_name="bell.badge.fill"
+              android_material_icon_name="notifications"
+              size={32}
+              color={colors.warning}
+            />
+            <Text style={[styles.statValue, { color: textColor }]}>
+              {alertsGeneratedText}
+            </Text>
+            <Text style={[styles.statLabel, { color: textSecondaryColor }]}>
+              Alerts
+            </Text>
+          </View>
+        </View>
+
+        {/* Risk Distribution */}
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.cardTitle, { color: textColor }]}>
+            Risk Distribution
+          </Text>
+
+          {totalRisk > 0 ? (
+            <React.Fragment>
+              <View style={styles.riskBar}>
+                {data.riskDistribution.LOW > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskLow,
+                        flex: data.riskDistribution.LOW,
+                      },
+                    ]}
+                  />
+                )}
+                {data.riskDistribution.MEDIUM > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskMedium,
+                        flex: data.riskDistribution.MEDIUM,
+                      },
+                    ]}
+                  />
+                )}
+                {data.riskDistribution.HIGH > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskHigh,
+                        flex: data.riskDistribution.HIGH,
+                      },
+                    ]}
+                  />
+                )}
+                {data.riskDistribution.CRITICAL > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskCritical,
+                        flex: data.riskDistribution.CRITICAL,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
+
+              <View style={styles.riskLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskLow }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    Low ({lowPercent}%)
                   </Text>
                 </View>
-
-                <View style={styles.transactionBody}>
-                  <View style={styles.transactionInfo}>
-                    <IconSymbol
-                      ios_icon_name={isSent ? 'arrow.up.circle' : 'arrow.down.circle'}
-                      android_material_icon_name={typeIcon}
-                      size={32}
-                      color={typeColor}
-                    />
-                    <View style={styles.transactionDetails}>
-                      <Text style={[styles.recipientText, { color: textColor }]}>
-                        {transaction.recipient}
-                      </Text>
-                      <Text style={[styles.balanceText, { color: textSecondaryColor }]}>
-                        Balance: GHS {balanceText}
-                      </Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.amountText, { color: typeColor }]}>
-                    {isSent ? '-' : '+'}GHS {amountText}
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskMedium }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    Medium ({mediumPercent}%)
                   </Text>
                 </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskHigh }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    High ({highPercent}%)
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskCritical }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    Critical ({criticalPercent}%)
+                  </Text>
+                </View>
+              </View>
+            </React.Fragment>
+          ) : (
+            <Text style={[styles.noDataText, { color: textSecondaryColor }]}>
+              No risk data available yet. Start analyzing transactions to see risk distribution.
+            </Text>
+          )}
+        </View>
 
-                {transaction.riskReasons.length > 0 && (
-                  <View style={styles.riskReasonsContainer}>
-                    {transaction.riskReasons.map((reason, index) => (
-                      <View key={index} style={styles.riskReasonItem}>
-                        <IconSymbol
-                          ios_icon_name="exclamationmark.triangle.fill"
-                          android_material_icon_name="warning"
-                          size={14}
-                          color={riskColor}
-                        />
-                        <Text style={[styles.riskReasonText, { color: textSecondaryColor }]}>
-                          {reason}
+        {/* Layer Performance */}
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.cardTitle, { color: textColor }]}>
+            Layer Performance
+          </Text>
+          <Text style={[styles.cardSubtitle, { color: textSecondaryColor }]}>
+            7-layer security analysis
+          </Text>
+
+          {data.layerPerformance.length > 0 ? (
+            <React.Fragment>
+              {data.layerPerformance.map((layer) => {
+                const passRateText = layer.passRate.toFixed(1);
+                const processingTimeText = layer.avgProcessingTime.toFixed(0);
+
+                return (
+                  <View key={layer.layer} style={styles.layerItem}>
+                    <View style={styles.layerHeader}>
+                      <View style={styles.layerInfo}>
+                        <View style={[styles.layerNumber, { backgroundColor: colors.primary }]}>
+                          <Text style={styles.layerNumberText}>
+                            {layer.layer}
+                          </Text>
+                        </View>
+                        <Text style={[styles.layerName, { color: textColor }]}>
+                          {layer.layerName}
                         </Text>
                       </View>
-                    ))}
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+                      <Text style={[styles.layerTime, { color: textSecondaryColor }]}>
+                        {processingTimeText}ms
+                      </Text>
+                    </View>
 
-      {/* Action Modal */}
-      <Modal
-        visible={showActionModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowActionModal(false)}
-      >
-        <Pressable 
-          style={styles.modalOverlay}
-          onPress={() => setShowActionModal(false)}
-        >
-          <Pressable 
-            style={[styles.modalContent, { backgroundColor: cardColor }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: textColor }]}>
-                Transaction Actions
-              </Text>
-              <TouchableOpacity
-                onPress={() => setShowActionModal(false)}
-                style={styles.closeButton}
-              >
-                <IconSymbol
-                  ios_icon_name="xmark.circle.fill"
-                  android_material_icon_name="close"
-                  size={24}
-                  color={textSecondaryColor}
-                />
-              </TouchableOpacity>
-            </View>
-
-            {selectedTransaction && (
-              <>
-                <View style={styles.modalTransactionInfo}>
-                  <Text style={[styles.modalLabel, { color: textSecondaryColor }]}>
-                    Merchant
-                  </Text>
-                  <Text style={[styles.modalValue, { color: textColor }]}>
-                    {selectedTransaction.recipient}
-                  </Text>
-                  
-                  <Text style={[styles.modalLabel, { color: textSecondaryColor, marginTop: 12 }]}>
-                    Amount
-                  </Text>
-                  <Text style={[styles.modalValue, { color: textColor }]}>
-                    GHS {formatAmount(selectedTransaction.amount)}
-                  </Text>
-                  
-                  <Text style={[styles.modalLabel, { color: textSecondaryColor, marginTop: 12 }]}>
-                    Risk Level
-                  </Text>
-                  <View style={[styles.riskBadge, { backgroundColor: getRiskColor(selectedTransaction.riskLevel) }]}>
-                    <Text style={styles.riskText}>
-                      {selectedTransaction.riskLevel}
+                    <View style={styles.progressBarContainer}>
+                      <View
+                        style={[
+                          styles.progressBar,
+                          {
+                            width: `${layer.passRate}%`,
+                            backgroundColor: layer.passRate >= 90 ? colors.success : layer.passRate >= 70 ? colors.warning : colors.error,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.passRateText, { color: textSecondaryColor }]}>
+                      {passRateText}% pass rate
                     </Text>
                   </View>
-                </View>
+                );
+              })}
+            </React.Fragment>
+          ) : (
+            <Text style={[styles.noDataText, { color: textSecondaryColor }]}>
+              No layer performance data available yet. Analyze transactions to see layer metrics.
+            </Text>
+          )}
+        </View>
 
-                <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.safeButton]}
-                    onPress={handleConfirmSafe}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <IconSymbol
-                          ios_icon_name="checkmark.circle.fill"
-                          android_material_icon_name="check-circle"
-                          size={20}
-                          color="#fff"
-                        />
-                        <Text style={styles.actionButtonText}>This is Safe</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+        {/* Quick Actions */}
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: cardColor }]}
+            onPress={() => router.push('/alerts')}
+          >
+            <IconSymbol
+              ios_icon_name="bell.badge.fill"
+              android_material_icon_name="notifications"
+              size={32}
+              color={colors.warning}
+            />
+            <Text style={[styles.actionText, { color: textColor }]}>
+              View Alerts
+            </Text>
+          </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.blockButton]}
-                    onPress={handleBlockMerchant}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <IconSymbol
-                          ios_icon_name="hand.raised.fill"
-                          android_material_icon_name="block"
-                          size={20}
-                          color="#fff"
-                        />
-                        <Text style={styles.actionButtonText}>Block Merchant</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: cardColor }]}
+            onPress={() => router.push('/chatbot')}
+          >
+            <IconSymbol
+              ios_icon_name="message.badge.fill"
+              android_material_icon_name="chat"
+              size={32}
+              color={colors.primary}
+            />
+            <Text style={[styles.actionText, { color: textColor }]}>
+              AI Chatbot
+            </Text>
+          </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.reportButton]}
-                    onPress={handleReportFraud}
-                    disabled={actionLoading}
-                  >
-                    {actionLoading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <IconSymbol
-                          ios_icon_name="exclamationmark.triangle.fill"
-                          android_material_icon_name="report"
-                          size={20}
-                          color="#fff"
-                        />
-                        <Text style={styles.actionButtonText}>Report Fraud</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: cardColor }]}
+            onPress={() => router.push('/behavior-profile')}
+          >
+            <IconSymbol
+              ios_icon_name="person.badge.shield.checkmark.fill"
+              android_material_icon_name="person"
+              size={32}
+              color={colors.accent}
+            />
+            <Text style={[styles.actionText, { color: textColor }]}>
+              My Profile
+            </Text>
+          </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.cancelButton]}
-                    onPress={() => setShowActionModal(false)}
-                  >
-                    <Text style={[styles.actionButtonText, { color: textColor }]}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-          </Pressable>
-        </Pressable>
-      </Modal>
+          <TouchableOpacity
+            style={[styles.actionCard, { backgroundColor: cardColor }]}
+            onPress={() => router.push('/blacklist')}
+          >
+            <IconSymbol
+              ios_icon_name="hand.raised.fill"
+              android_material_icon_name="block"
+              size={32}
+              color={colors.error}
+            />
+            <Text style={[styles.actionText, { color: textColor }]}>
+              Blacklist
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -618,10 +496,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 24,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -630,229 +524,157 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 100,
   },
-  summaryContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-    gap: 12,
-  },
-  summaryCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  summaryLabel: {
-    fontSize: 12,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  summaryAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  transactionsHeader: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  emptyContainer: {
-    padding: 48,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  transactionCard: {
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  transactionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  transactionLeft: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  providerBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  providerText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1A1F2E',
-  },
-  riskBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  riskText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  dateText: {
-    fontSize: 12,
-  },
-  transactionBody: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  transactionInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  transactionDetails: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  recipientText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  balanceText: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  amountText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  riskReasonsContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  riskReasonItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  riskReasonText: {
-    fontSize: 12,
-    marginLeft: 6,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 400,
+  headerCard: {
     borderRadius: 16,
     padding: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  modalHeader: {
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 16,
+  },
+  statCard: {
+    flex: 1,
+    minWidth: '45%',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 14,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  card: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  noDataText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  riskBar: {
+    flexDirection: 'row',
+    height: 40,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  riskSegment: {
+    height: '100%',
+  },
+  riskLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: 14,
+  },
+  layerItem: {
+    marginBottom: 20,
+  },
+  layerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
   },
-  modalTitle: {
-    fontSize: 20,
+  layerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  layerNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  layerNumberText: {
+    fontSize: 16,
     fontWeight: '700',
+    color: colors.text,
   },
-  closeButton: {
-    padding: 4,
-  },
-  modalTransactionInfo: {
-    marginBottom: 24,
-  },
-  modalLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  modalValue: {
+  layerName: {
     fontSize: 16,
     fontWeight: '600',
   },
-  modalActions: {
+  layerTime: {
+    fontSize: 14,
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: colors.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  passRateText: {
+    fontSize: 12,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  actionButton: {
-    height: 48,
-    borderRadius: 8,
-    flexDirection: 'row',
-    justifyContent: 'center',
+  actionCard: {
+    flex: 1,
+    minWidth: '45%',
+    padding: 20,
+    borderRadius: 12,
     alignItems: 'center',
     gap: 8,
   },
-  safeButton: {
-    backgroundColor: colors.success,
-  },
-  blockButton: {
-    backgroundColor: colors.warning,
-  },
-  reportButton: {
-    backgroundColor: colors.error,
-  },
-  cancelButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  actionButtonText: {
-    fontSize: 16,
+  actionText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    textAlign: 'center',
   },
 });

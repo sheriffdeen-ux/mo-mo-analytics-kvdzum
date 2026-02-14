@@ -49,7 +49,7 @@ export default function ChatbotScreen() {
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       type: 'bot',
-      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our 7-layer security framework.\n\n✅ Supported Providers:\n• MTN MoMo\n• Vodafone Cash\n• AirtelTigo Money\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Example SMS:\n"MTN MoMo: You sent GHS 100.00 to 0241234567 on 14/Feb/2024 at 2:45pm. Ref: MTN123456. New Balance: GHS 1,450.50"',
+      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our 7-layer security framework.\n\n✅ Supported Providers:\n• MTN MoMo\n• Vodafone Cash\n• AirtelTigo Money\n• Telecel Cash\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Example SMS:\n"0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23."',
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
@@ -75,12 +75,11 @@ export default function ChatbotScreen() {
     try {
       const response = await authenticatedPost<{
         success: boolean;
-        reply: string;
-        transactionAnalysis: any;
-        riskLevel: string;
-        shouldAlert: boolean;
+        chatbotReply: string;
+        transaction: any;
+        analysis: any;
         error?: string;
-      }>('/api/chatbot/analyze-sms', {
+      }>('/api/chatbot/sms/analyze', {
         smsMessage: smsText,
       });
 
@@ -90,7 +89,7 @@ export default function ChatbotScreen() {
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'bot',
-          content: `❌ ${response.error}\n\nPlease paste a valid MoMo transaction SMS (MTN, Vodafone, or AirtelTigo).`,
+          content: `❌ ${response.error}\n\nPlease paste a valid MoMo transaction SMS (MTN, Vodafone, AirtelTigo, or Telecel Cash).`,
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, errorMessage]);
@@ -100,10 +99,10 @@ export default function ChatbotScreen() {
       const botMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: response.reply,
+        content: response.chatbotReply,
         timestamp: new Date(),
-        riskLevel: response.riskLevel,
-        analysis: response.transactionAnalysis,
+        riskLevel: response.analysis?.riskLevel,
+        analysis: response.analysis,
       };
 
       setMessages(prev => [...prev, botMessage]);
@@ -128,7 +127,7 @@ export default function ChatbotScreen() {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: `❌ Analysis Failed\n\n${errorText}\n\nPlease make sure you're pasting a valid MoMo transaction SMS from MTN, Vodafone, or AirtelTigo.`,
+        content: `❌ Analysis Failed\n\n${errorText}\n\nPlease make sure you're pasting a valid MoMo transaction SMS from MTN, Vodafone, AirtelTigo, or Telecel Cash.`,
         timestamp: new Date(),
       };
 
