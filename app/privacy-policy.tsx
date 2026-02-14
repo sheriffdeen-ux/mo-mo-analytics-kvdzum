@@ -1,382 +1,393 @@
 
-import React, { useState, useEffect } from "react";
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   useColorScheme,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Stack } from "expo-router";
-import { colors } from "@/styles/commonStyles";
+} from 'react-native';
+import { Stack } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/styles/commonStyles';
 
 export default function PrivacyPolicyScreen() {
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const [loading, setLoading] = useState(true);
-  const [policyText, setPolicyText] = useState("");
+  const isDark = colorScheme === 'dark';
 
-  const bgColor = isDark ? colors.background : "#fff";
-  const textColor = isDark ? colors.text : "#000";
-  const textSecondaryColor = isDark ? colors.textSecondary : "#666";
+  const bgColor = isDark ? colors.backgroundDark : colors.background;
+  const textColor = isDark ? colors.textDark : colors.text;
+  const textSecondaryColor = isDark ? colors.textSecondaryDark : colors.textSecondary;
   const cardColor = isDark ? colors.cardDark : colors.card;
 
-  useEffect(() => {
-    loadPrivacyPolicy();
-  }, []);
-
-  const loadPrivacyPolicy = async () => {
-    try {
-      console.log("[Privacy] Loading privacy policy");
-      const { apiGet } = await import("@/utils/api");
-      const response = await apiGet<{ policy: string }>("/api/legal/privacy-policy");
-      console.log("[Privacy] Policy loaded");
-      setPolicyText(response.policy);
-    } catch (error) {
-      console.error("[Privacy] Failed to load policy:", error);
-      // Fallback policy text
-      setPolicyText(getDefaultPrivacyPolicy());
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getDefaultPrivacyPolicy = () => {
-    return `MoMo Analytics Privacy Policy
-
-Last Updated: ${new Date().toLocaleDateString()}
-
-═══════════════════════════════════════════════════════
-1. INTRODUCTION
-═══════════════════════════════════════════════════════
-
-Welcome to MoMo Analytics - Ghana's premier Mobile Money fraud detection and financial analytics platform. We are committed to protecting your privacy and ensuring the security of your personal and financial information.
-
-This Privacy Policy explains how we collect, use, store, and protect your data when you use our services.
-
-═══════════════════════════════════════════════════════
-2. INFORMATION WE COLLECT
-═══════════════════════════════════════════════════════
-
-2.1 Account Information:
-• Email Address (for authentication and communication)
-• Full Name (for personalization)
-• Phone Number (optional, for SMS alerts)
-• Password (encrypted and hashed - never stored in plain text)
-
-2.2 Transaction Data (Extracted from MoMo SMS):
-• Transaction Amount (GHS)
-• Recipient/Sender Phone Number or Name
-• Transaction Type (sent, received, withdrawal, deposit)
-• Provider (MTN MoMo, Vodafone Cash, AirtelTigo Money)
-• Transaction Date and Time
-• Reference Number
-• Account Balance (after transaction)
-
-2.3 Device Information:
-• Device ID (for security and multi-device support)
-• Device Fingerprint (for fraud detection)
-• Operating System and Version
-• App Version
-• FCM Token (for push notifications)
-
-2.4 Usage Data:
-• Login timestamps
-• Feature usage patterns
-• Transaction analysis history
-• Alert interactions
-• Settings preferences
-
-═══════════════════════════════════════════════════════
-3. SMS MESSAGE HANDLING - CRITICAL PRIVACY GUARANTEE
-═══════════════════════════════════════════════════════
-
-🔒 PRIVACY GUARANTEE: We DO NOT store your raw SMS messages in our database.
-
-How SMS Processing Works:
-1. SMS is read locally on your device
-2. Our app identifies if it's a MoMo transaction SMS
-3. Transaction data is extracted (amount, recipient, time, reference)
-4. Only the structured transaction data is sent to our servers
-5. Raw SMS text is NEVER stored in our database
-6. Personal conversations are NEVER accessed
-
-You Control SMS Access:
-• Enable/Disable SMS reading at any time in Settings
-• Choose between auto-detection or manual input
-• Revoke SMS permissions through device settings
-• View transparency report of SMS scans
-
-═══════════════════════════════════════════════════════
-4. HOW WE USE YOUR INFORMATION
-═══════════════════════════════════════════════════════
-
-4.1 Fraud Detection (7-Layer Security Framework):
-• Layer 1: SMS Capture & Parsing
-• Layer 2: Input Validation & Sanitization
-• Layer 3: Pattern Recognition & NLP (scam keyword detection)
-• Layer 4: Behavioral Analytics (velocity checks, anomaly detection)
-• Layer 5: Real-Time Risk Scoring (0-100 scale)
-• Layer 6: Alert System (LOW/MEDIUM/HIGH/CRITICAL alerts)
-• Layer 7: Compliance & Audit Trail
-
-4.2 Financial Analytics:
-• Daily, weekly, and monthly spending reports
-• Total sent vs. received analysis
-• Average transaction amounts
-• Spending trends and patterns
-• Fraud prevention savings
-
-4.3 Personalization:
-• Customized risk thresholds
-• Trusted/blocked merchant lists
-• Daily spending limits
-• Alert preferences
-
-4.4 Security:
-• Multi-device authentication
-• Suspicious login detection
-• Device trust management
-• Behavioral phone binding
-
-═══════════════════════════════════════════════════════
-5. DATA SECURITY MEASURES
-═══════════════════════════════════════════════════════
-
-5.1 Encryption:
-• All data encrypted in transit (TLS/SSL)
-• All data encrypted at rest (AES-256)
-• End-to-end encryption for sensitive operations
-
-5.2 Authentication:
-• Secure JWT token-based authentication
-• Password hashing using bcrypt (industry standard)
-• OTP codes hashed and never stored in plain text
-• PINs never stored in plain text
-• Multi-factor authentication support
-
-5.3 Access Control:
-• Role-based access control (RBAC)
-• User data isolation (you only see your data)
-• Admin access logged and audited
-• Rate limiting to prevent abuse
-
-5.4 Monitoring:
-• Real-time security monitoring
-• Automated threat detection
-• Comprehensive audit logs
-• Regular security audits
-
-═══════════════════════════════════════════════════════
-6. PAYMENT PROCESSING
-═══════════════════════════════════════════════════════
-
-• Payments processed securely through Paystack (PCI DSS compliant)
-• We DO NOT store your payment card information
-• All payment transactions are encrypted
-• Subscription management through secure API
-• Automatic renewal with email notifications
-
-═══════════════════════════════════════════════════════
-7. DATA SHARING & THIRD PARTIES
-═══════════════════════════════════════════════════════
-
-We DO NOT sell, rent, or share your personal information with third parties.
-
-Limited Data Sharing (Only When Necessary):
-• Paystack: For payment processing (card details never touch our servers)
-• Arkesel: For SMS OTP delivery (only phone number and OTP code)
-• Google Gemini AI: For chatbot analysis (only transaction data, no personal info)
-• Law Enforcement: When legally required by Ghanaian law
-
-We DO NOT share with:
-• Advertisers
-• Data brokers
-• Marketing companies
-• Social media platforms
-
-═══════════════════════════════════════════════════════
-8. YOUR RIGHTS (GDPR & DATA PROTECTION ACT 2012)
-═══════════════════════════════════════════════════════
-
-You have the right to:
-✓ Access your data (download all your data)
-✓ Rectify incorrect data (update your profile)
-✓ Erase your data (delete your account)
-✓ Restrict processing (disable SMS reading)
-✓ Data portability (export to CSV/JSON)
-✓ Object to processing (opt-out of analytics)
-✓ Withdraw consent (revoke SMS permissions)
-✓ Lodge a complaint (contact Data Protection Commission)
-
-How to Exercise Your Rights:
-• Go to Settings > Privacy & Data
-• Email: privacy@momoanalytics.com
-• In-app support chat
-
-═══════════════════════════════════════════════════════
-9. DATA RETENTION
-═══════════════════════════════════════════════════════
-
-• Transaction Data: Retained for the duration of your subscription + 90 days
-• Account Data: Retained until you request deletion
-• Audit Logs: Retained for 1 year (for security and compliance)
-• Deleted Data: Permanently removed within 30 days
-• Backup Data: Removed from backups within 90 days
-
-═══════════════════════════════════════════════════════
-10. SUBSCRIPTION PLANS
-═══════════════════════════════════════════════════════
-
-• Free: Basic features, 30-day transaction history
-• Trial: 14-day free access to all Pro features
-• Pro: Advanced fraud protection, unlimited history, priority support
-• Business: Multi-user accounts, API access, custom integrations
-
-═══════════════════════════════════════════════════════
-11. CHILDREN'S PRIVACY
-═══════════════════════════════════════════════════════
-
-MoMo Analytics is not intended for users under 18 years old. We do not knowingly collect data from children. If you believe a child has provided us with personal information, please contact us immediately.
-
-═══════════════════════════════════════════════════════
-12. INTERNATIONAL DATA TRANSFERS
-═══════════════════════════════════════════════════════
-
-Your data is primarily stored on servers in Ghana. If data is transferred internationally, we ensure adequate protection through:
-• Standard Contractual Clauses (SCCs)
-• Encryption in transit and at rest
-• Compliance with GDPR and local data protection laws
-
-═══════════════════════════════════════════════════════
-13. COOKIES & TRACKING
-═══════════════════════════════════════════════════════
-
-We use minimal cookies for:
-• Authentication (session management)
-• Security (CSRF protection)
-• Analytics (app usage statistics)
-
-We DO NOT use:
-• Advertising cookies
-• Third-party tracking pixels
-• Cross-site tracking
-
-═══════════════════════════════════════════════════════
-14. CHANGES TO THIS POLICY
-═══════════════════════════════════════════════════════
-
-We may update this privacy policy from time to time. We will notify you of any material changes by:
-• Email notification
-• In-app notification
-• Posting the new policy on this page
-
-Continued use of the app after changes constitutes acceptance of the updated policy.
-
-═══════════════════════════════════════════════════════
-15. CONTACT US
-═══════════════════════════════════════════════════════
-
-For privacy concerns, data requests, or questions:
-
-Email: privacy@momoanalytics.com
-Support: support@momoanalytics.com
-Phone: +233 (0) 24 123 4567
-Address: Accra, Ghana
-
-Data Protection Officer: dpo@momoanalytics.com
-
-═══════════════════════════════════════════════════════
-16. LEGAL BASIS FOR PROCESSING (GDPR)
-═══════════════════════════════════════════════════════
-
-We process your data based on:
-• Consent: SMS reading, marketing communications
-• Contract: Providing fraud detection services
-• Legitimate Interest: Security, fraud prevention, analytics
-• Legal Obligation: Compliance with Ghanaian law
-
-═══════════════════════════════════════════════════════
-17. SECURITY INCIDENT RESPONSE
-═══════════════════════════════════════════════════════
-
-In the event of a data breach:
-• We will notify affected users within 72 hours
-• We will notify the Data Protection Commission
-• We will provide details of the breach and remediation steps
-• We will offer credit monitoring if financial data is compromised
-
-═══════════════════════════════════════════════════════
-
-By using MoMo Analytics, you acknowledge that you have read and understood this Privacy Policy and agree to its terms.
-
-Last Updated: ${new Date().toLocaleDateString()}
-Version: 2.0`;
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }]} edges={["top"]}>
-        <Stack.Screen
-          options={{
-            title: "Privacy Policy",
-            headerShown: true,
-            headerBackTitle: "Back",
-          }}
-        />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: textSecondaryColor }]}>
-            Loading privacy policy...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const lastUpdatedText = 'February 14, 2026';
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }]} edges={["top"]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: bgColor }]} edges={['top']}>
       <Stack.Screen
         options={{
-          title: "Privacy Policy",
+          title: 'Privacy Policy',
           headerShown: true,
-          headerBackTitle: "Back",
+          headerBackTitle: 'Back',
+          headerStyle: { backgroundColor: bgColor },
+          headerTintColor: textColor,
         }}
       />
+
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
       >
-        <Text style={[styles.policyText, { color: textColor }]}>{policyText}</Text>
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.title, { color: textColor }]}>
+            Privacy Policy
+          </Text>
+          <Text style={[styles.lastUpdated, { color: textSecondaryColor }]}>
+            Last Updated: {lastUpdatedText}
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            1. Introduction
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            MoMo Analytics ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application for fraud detection and financial analytics in Ghana.
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            2. Information We Collect
+          </Text>
+          
+          <Text style={[styles.subsectionTitle, { color: textColor }]}>
+            2.1 SMS Transaction Data
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            With your explicit consent, we access and analyze SMS messages from Mobile Money providers (MTN MoMo, Vodafone Cash, AirtelTigo Money) to extract transaction information including:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Transaction amount (GHS)
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Recipient phone number
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Transaction timestamp
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Transaction reference number
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Account balance
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            Important: We do NOT store raw SMS message content. Only extracted transaction data is retained for fraud analysis.
+          </Text>
+
+          <Text style={[styles.subsectionTitle, { color: textColor }]}>
+            2.2 Account Information
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Email address
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Full name
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Phone number (optional)
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Password (encrypted)
+          </Text>
+
+          <Text style={[styles.subsectionTitle, { color: textColor }]}>
+            2.3 Device Information
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Device ID and fingerprint
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Operating system version
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • App version
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Push notification tokens
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            3. How We Use Your Information
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            We use the collected information for:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Real-time fraud detection through our 7-layer security framework
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Risk scoring and behavioral analytics
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Generating financial reports (daily, weekly, monthly)
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Sending fraud alerts and notifications
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Improving our fraud detection algorithms
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Providing customer support
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            4. Data Security
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            We implement industry-standard security measures:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • End-to-end encryption for data transmission (TLS/SSL)
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Encrypted storage for sensitive data at rest
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Secure authentication with hashed passwords
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Regular security audits and penetration testing
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Access controls and audit logging
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            5. Data Sharing and Disclosure
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            We do NOT sell your personal information. We may share data only in these circumstances:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • With your explicit consent
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • To comply with legal obligations or law enforcement requests
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • To protect our rights, privacy, safety, or property
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • With service providers who assist in app operations (under strict confidentiality agreements)
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            6. Your Rights and Choices
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            You have the right to:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Access your personal data
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Request data correction or deletion
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Withdraw SMS access consent at any time
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Opt-out of push notifications
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Export your transaction data
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Delete your account and all associated data
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            7. SMS Permissions
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            SMS access is OPTIONAL and requires your explicit consent. You can:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Enable/disable SMS auto-detection in Settings
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Choose which SMS providers to monitor
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Manually paste SMS messages for analysis instead
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Revoke SMS permissions at any time through device settings
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            8. Data Retention
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            We retain your data for as long as your account is active or as needed to provide services. Transaction data is retained for:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • 12 months for fraud analysis and reporting
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Longer if required by law or for legal proceedings
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            Upon account deletion, all personal data is permanently removed within 30 days.
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            9. Children's Privacy
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            MoMo Analytics is not intended for users under 18 years of age. We do not knowingly collect personal information from children. If you believe we have collected data from a child, please contact us immediately.
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            10. Changes to This Policy
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            We may update this Privacy Policy from time to time. We will notify you of significant changes via:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • In-app notification
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Email notification
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Updated "Last Updated" date at the top of this policy
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            11. Contact Us
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            If you have questions about this Privacy Policy or our data practices, please contact us:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Email: privacy@momoanalytics.com
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • In-App: Settings → Help & Support → Contact Us
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Address: Accra, Ghana
+          </Text>
+        </View>
+
+        <View style={[styles.card, { backgroundColor: cardColor }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
+            12. Compliance
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            MoMo Analytics complies with:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Ghana Data Protection Act, 2012 (Act 843)
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • General Data Protection Regulation (GDPR) principles
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Mobile Money provider terms and conditions
+          </Text>
+        </View>
+
+        <View style={[styles.footer, { backgroundColor: cardColor }]}>
+          <Text style={[styles.footerText, { color: textSecondaryColor }]}>
+            By using MoMo Analytics, you acknowledge that you have read and understood this Privacy Policy and agree to its terms.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
   container: {
     flex: 1,
   },
-  loadingContainer: {
+  scrollView: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100,
   },
-  contentContainer: {
-    padding: 20,
-    paddingBottom: 40,
+  card: {
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
-  policyText: {
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  lastUpdated: {
     fontSize: 14,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  subsectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  paragraph: {
+    fontSize: 15,
     lineHeight: 22,
+    marginBottom: 12,
+  },
+  bulletPoint: {
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 6,
+    paddingLeft: 8,
+  },
+  footer: {
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  footerText: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

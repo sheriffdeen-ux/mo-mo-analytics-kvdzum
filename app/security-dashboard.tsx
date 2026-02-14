@@ -48,6 +48,7 @@ export default function SecurityDashboardScreen() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const bgColor = isDark ? colors.backgroundDark : colors.background;
   const textColor = isDark ? colors.textDark : colors.text;
@@ -61,12 +62,37 @@ export default function SecurityDashboardScreen() {
 
   const loadDashboard = async () => {
     console.log('[Security Dashboard] Loading data...');
+    setError(null);
     try {
       const response = await authenticatedGet<DashboardData>('/api/dashboard/security-overview');
       console.log('[Security Dashboard] Data loaded:', response);
-      setData(response);
-    } catch (error) {
-      console.error('[Security Dashboard] Failed to load data:', error);
+      
+      // Validate response structure
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response from server');
+      }
+      
+      // Ensure all required fields exist with defaults
+      const validatedData: DashboardData = {
+        totalTransactions: response.totalTransactions || 0,
+        fraudDetected: response.fraudDetected || 0,
+        moneyProtected: response.moneyProtected || 0,
+        alertsGenerated: response.alertsGenerated || 0,
+        layerPerformance: Array.isArray(response.layerPerformance) ? response.layerPerformance : [],
+        recentAlerts: Array.isArray(response.recentAlerts) ? response.recentAlerts : [],
+        riskDistribution: {
+          LOW: response.riskDistribution?.LOW || 0,
+          MEDIUM: response.riskDistribution?.MEDIUM || 0,
+          HIGH: response.riskDistribution?.HIGH || 0,
+          CRITICAL: response.riskDistribution?.CRITICAL || 0,
+        },
+      };
+      
+      setData(validatedData);
+    } catch (err: any) {
+      console.error('[Security Dashboard] Failed to load data:', err);
+      const errorMessage = err?.message || 'Failed to load dashboard data';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -100,7 +126,7 @@ export default function SecurityDashboardScreen() {
     );
   }
 
-  if (!data) {
+  if (error || !data) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: bgColor }]} edges={['top']}>
         <Stack.Screen
@@ -113,9 +139,23 @@ export default function SecurityDashboardScreen() {
           }}
         />
         <View style={styles.loadingContainer}>
+          <IconSymbol
+            ios_icon_name="exclamationmark.triangle.fill"
+            android_material_icon_name="warning"
+            size={64}
+            color={colors.warning}
+          />
           <Text style={[styles.errorText, { color: textColor }]}>
-            Failed to load dashboard
+            {error || 'Failed to load dashboard'}
           </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
+            onPress={loadDashboard}
+          >
+            <Text style={[styles.retryButtonText, { color: colors.text }]}>
+              Retry
+            </Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -236,71 +276,87 @@ export default function SecurityDashboardScreen() {
             Risk Distribution
           </Text>
 
-          <View style={styles.riskBar}>
-            <View
-              style={[
-                styles.riskSegment,
-                {
-                  backgroundColor: colors.riskLow,
-                  flex: data.riskDistribution.LOW,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.riskSegment,
-                {
-                  backgroundColor: colors.riskMedium,
-                  flex: data.riskDistribution.MEDIUM,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.riskSegment,
-                {
-                  backgroundColor: colors.riskHigh,
-                  flex: data.riskDistribution.HIGH,
-                },
-              ]}
-            />
-            <View
-              style={[
-                styles.riskSegment,
-                {
-                  backgroundColor: colors.riskCritical,
-                  flex: data.riskDistribution.CRITICAL,
-                },
-              ]}
-            />
-          </View>
+          {totalRisk > 0 ? (
+            <React.Fragment>
+              <View style={styles.riskBar}>
+                {data.riskDistribution.LOW > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskLow,
+                        flex: data.riskDistribution.LOW,
+                      },
+                    ]}
+                  />
+                )}
+                {data.riskDistribution.MEDIUM > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskMedium,
+                        flex: data.riskDistribution.MEDIUM,
+                      },
+                    ]}
+                  />
+                )}
+                {data.riskDistribution.HIGH > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskHigh,
+                        flex: data.riskDistribution.HIGH,
+                      },
+                    ]}
+                  />
+                )}
+                {data.riskDistribution.CRITICAL > 0 && (
+                  <View
+                    style={[
+                      styles.riskSegment,
+                      {
+                        backgroundColor: colors.riskCritical,
+                        flex: data.riskDistribution.CRITICAL,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
 
-          <View style={styles.riskLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.riskLow }]} />
-              <Text style={[styles.legendText, { color: textSecondaryColor }]}>
-                Low ({lowPercent}%)
-              </Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.riskMedium }]} />
-              <Text style={[styles.legendText, { color: textSecondaryColor }]}>
-                Medium ({mediumPercent}%)
-              </Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.riskHigh }]} />
-              <Text style={[styles.legendText, { color: textSecondaryColor }]}>
-                High ({highPercent}%)
-              </Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: colors.riskCritical }]} />
-              <Text style={[styles.legendText, { color: textSecondaryColor }]}>
-                Critical ({criticalPercent}%)
-              </Text>
-            </View>
-          </View>
+              <View style={styles.riskLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskLow }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    Low ({lowPercent}%)
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskMedium }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    Medium ({mediumPercent}%)
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskHigh }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    High ({highPercent}%)
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: colors.riskCritical }]} />
+                  <Text style={[styles.legendText, { color: textSecondaryColor }]}>
+                    Critical ({criticalPercent}%)
+                  </Text>
+                </View>
+              </View>
+            </React.Fragment>
+          ) : (
+            <Text style={[styles.noDataText, { color: textSecondaryColor }]}>
+              No risk data available yet. Start analyzing transactions to see risk distribution.
+            </Text>
+          )}
         </View>
 
         {/* Layer Performance */}
@@ -312,45 +368,53 @@ export default function SecurityDashboardScreen() {
             7-layer security analysis
           </Text>
 
-          {data.layerPerformance.map((layer) => {
-            const passRateText = layer.passRate.toFixed(1);
-            const processingTimeText = layer.avgProcessingTime.toFixed(0);
+          {data.layerPerformance.length > 0 ? (
+            <React.Fragment>
+              {data.layerPerformance.map((layer) => {
+                const passRateText = layer.passRate.toFixed(1);
+                const processingTimeText = layer.avgProcessingTime.toFixed(0);
 
-            return (
-              <View key={layer.layer} style={styles.layerItem}>
-                <View style={styles.layerHeader}>
-                  <View style={styles.layerInfo}>
-                    <View style={[styles.layerNumber, { backgroundColor: colors.primary }]}>
-                      <Text style={styles.layerNumberText}>
-                        {layer.layer}
+                return (
+                  <View key={layer.layer} style={styles.layerItem}>
+                    <View style={styles.layerHeader}>
+                      <View style={styles.layerInfo}>
+                        <View style={[styles.layerNumber, { backgroundColor: colors.primary }]}>
+                          <Text style={styles.layerNumberText}>
+                            {layer.layer}
+                          </Text>
+                        </View>
+                        <Text style={[styles.layerName, { color: textColor }]}>
+                          {layer.layerName}
+                        </Text>
+                      </View>
+                      <Text style={[styles.layerTime, { color: textSecondaryColor }]}>
+                        {processingTimeText}ms
                       </Text>
                     </View>
-                    <Text style={[styles.layerName, { color: textColor }]}>
-                      {layer.layerName}
+
+                    <View style={styles.progressBarContainer}>
+                      <View
+                        style={[
+                          styles.progressBar,
+                          {
+                            width: `${layer.passRate}%`,
+                            backgroundColor: layer.passRate >= 90 ? colors.success : layer.passRate >= 70 ? colors.warning : colors.error,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={[styles.passRateText, { color: textSecondaryColor }]}>
+                      {passRateText}% pass rate
                     </Text>
                   </View>
-                  <Text style={[styles.layerTime, { color: textSecondaryColor }]}>
-                    {processingTimeText}ms
-                  </Text>
-                </View>
-
-                <View style={styles.progressBarContainer}>
-                  <View
-                    style={[
-                      styles.progressBar,
-                      {
-                        width: `${layer.passRate}%`,
-                        backgroundColor: layer.passRate >= 90 ? colors.success : layer.passRate >= 70 ? colors.warning : colors.error,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.passRateText, { color: textSecondaryColor }]}>
-                  {passRateText}% pass rate
-                </Text>
-              </View>
-            );
-          })}
+                );
+              })}
+            </React.Fragment>
+          ) : (
+            <Text style={[styles.noDataText, { color: textSecondaryColor }]}>
+              No layer performance data available yet. Analyze transactions to see layer metrics.
+            </Text>
+          )}
         </View>
 
         {/* Quick Actions */}
@@ -428,6 +492,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 24,
   },
   loadingText: {
     marginTop: 16,
@@ -435,6 +500,18 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
+    textAlign: 'center',
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
@@ -496,6 +573,12 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 14,
     marginBottom: 16,
+  },
+  noDataText: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   riskBar: {
     flexDirection: 'row',

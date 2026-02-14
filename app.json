@@ -1,43 +1,47 @@
+
 {
   "expo": {
     "name": "MoMo Analytics",
-    "slug": "MoMo Analytics",
+    "slug": "MoMo-Analytics",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/app-icon-tdb.png",
+    "icon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/app-icon-tdb.png",
+      "image": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.Natively",
+      "bundleIdentifier": "com.momoanalytics.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSUserTrackingUsageDescription": "This app uses your device ID to help us understand how you use the app and improve your experience."
+        "NSUserTrackingUsageDescription": "This app uses your device ID to help us understand how you use the app and improve your experience.",
+        "NSSMSUsageDescription": "This app needs access to your SMS messages to automatically detect and analyze MoMo transactions for fraud detection.",
+        "NSContactsUsageDescription": "This app needs access to your contacts to help identify trusted recipients."
       },
       "usesIcloudStorage": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/app-icon-tdb.png",
+        "foregroundImage": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively",
+      "package": "com.momoanalytics.app",
       "permissions": [
         "android.permission.RECEIVE_SMS",
         "android.permission.READ_SMS",
         "android.permission.INTERNET",
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.POST_NOTIFICATIONS"
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.READ_CONTACTS"
       ]
     },
     "web": {
-      "favicon": "./assets/images/app-icon-tdb.png",
+      "favicon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
       "bundler": "metro"
     },
     "plugins": [
@@ -45,7 +49,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "MoMo Analytics",
+    "scheme": "momoanalytics",
     "experiments": {
       "typedRoutes": true
     },
