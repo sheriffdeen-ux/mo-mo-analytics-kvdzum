@@ -127,6 +127,7 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
             userId,
             fullName: body.fullName.trim(),
             email: normalizedEmail,
+            emailVerified: true, // Auto-verify email on signup for immediate access
             passwordHash: hash,
             passwordSalt: salt,
             phoneNumber: body.phoneNumber.trim(),
@@ -159,23 +160,23 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
           }
         }
 
-        // Send verification link email
+        // Send verification link email asynchronously (non-blocking)
+        // This is kept for future production use where email verification may be required
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
         const verificationLink = getVerificationLink(frontendUrl, verificationToken);
 
-        const emailResult = await sendVerificationLinkEmail(
+        // Fire and forget - don't block signup response
+        sendVerificationLinkEmail(
           normalizedEmail,
           body.fullName.trim(),
           verificationLink,
           app.logger
-        );
-
-        if (!emailResult.success) {
+        ).catch((error) => {
           app.logger.warn(
-            { email: normalizedEmail, error: emailResult.error },
-            "Failed to send verification email, but user created successfully"
+            { email: normalizedEmail, err: error },
+            "Failed to send verification email during signup (non-blocking)"
           );
-        }
+        });
 
         // Generate authentication token (30-day expiration)
         const accessToken = generateToken(userId, normalizedEmail);
@@ -184,8 +185,8 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
         await logAuthEvent(app, userId, "SIGNUP", true, request);
 
         app.logger.info(
-          { userId, email: normalizedEmail },
-          "User signup successful"
+          { userId, email: normalizedEmail, emailVerified: true },
+          "User signup successful with auto-verified email"
         );
 
         return {
@@ -202,7 +203,7 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
           accessToken,
           expiresIn,
           tokenType: "Bearer",
-          message: "Account created successfully. Please verify your email to unlock all features.",
+          message: "Account created successfully. You can start using MoMo Analytics immediately!",
         };
       } catch (error) {
         app.logger.error(
