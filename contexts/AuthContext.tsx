@@ -1,6 +1,8 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Platform } from "react-native";
+import { getBearerToken } from "@/utils/api";
 import * as Linking from "expo-linking";
+import { Platform } from "react-native";
 import { authClient, setBearerToken, clearAuthTokens } from "@/lib/auth";
 
 interface User {
@@ -13,15 +15,15 @@ interface User {
   subscriptionStatus?: string;
   trialEndDate?: string;
   currentPlanId?: string;
+  smsConsentGiven?: boolean;
+  smsAutoDetectionEnabled?: boolean;
+  deviceFingerprint?: string;
+  requiresPinOnNewDevice?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
-  signInWithPhone: (phoneNumber: string) => Promise<void>;
-  verifyOTP: (phoneNumber: string, otpCode: string, fullName?: string, deviceId?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithGitHub: () => Promise<void>;
@@ -81,19 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetchUser();
 
-    // Listen for deep links (e.g. from social auth redirects)
     const subscription = Linking.addEventListener("url", (event) => {
       console.log("Deep link received, refreshing user session");
-      // Allow time for the client to process the token if needed
       setTimeout(() => fetchUser(), 500);
     });
 
-    // POLLING: Refresh session every 5 minutes to keep SecureStore token in sync
-    // This prevents 401 errors when the session token rotates
     const intervalId = setInterval(() => {
       console.log("Auto-refreshing user session to sync token...");
       fetchUser();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 5 * 60 * 1000);
 
     return () => {
       subscription.remove();
@@ -104,21 +102,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchUser = async () => {
     try {
       setLoading(true);
-      const session = await authClient.getSession();
-      if (session?.data?.user) {
-        setUser(session.data.user as User);
-        // Sync token to SecureStore for utils/api.ts
-        if (session.data.session?.token) {
-          await setBearerToken(session.data.session.token);
-          // Register device after successful authentication
-          await registerDeviceWithBackend();
+      
+      const token = await getBearerToken();
+      if (token) {
+        console.log("[Auth] Found bearer token, attempting to fetch user");
+        try {
+          const { authenticatedGet } = await import('@/utils/api');
+          const userData = await authenticatedGet('/api/user/me');
+          if (userData) {
+            setUser(userData as User);
+            console.log("[Auth] User fetched successfully via bearer token:", userData);
+            try {
+              await registerDeviceWithBackend();
+            } catch (deviceError) {
+              console.warn("[Auth] Device registration failed (non-critical):", deviceError);
+            }
+            return;
+          }
+        } catch (error: any) {
+          console.error("[Auth] Failed to fetch user with bearer token:", error);
+          if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+            console.log("[Auth] Token is invalid (401), clearing auth tokens");
+            await clearAuthTokens();
+          } else {
+            console.log("[Auth] Network or other error, keeping token for retry");
+          }
         }
-      } else {
-        setUser(null);
-        await clearAuthTokens();
       }
+      
+      try {
+        const session = await authClient.getSession();
+        if (session?.data?.user) {
+          setUser(session.data.user as User);
+          if (session.data.session?.token) {
+            await setBearerToken(session.data.session.token);
+            try {
+              await registerDeviceWithBackend();
+            } catch (deviceError) {
+              console.warn("[Auth] Device registration failed (non-critical):", deviceError);
+            }
+          }
+          console.log("[Auth] User fetched successfully via Better Auth session");
+          return;
+        }
+      } catch (error) {
+        console.log("[Auth] No Better Auth session found (this is normal for new users)");
+      }
+      
+      console.log("[Auth] No valid session found, user is not authenticated");
+      setUser(null);
     } catch (error) {
-      console.error("Failed to fetch user:", error);
+      console.error("[Auth] Failed to fetch user:", error);
       setUser(null);
     } finally {
       setLoading(false);
@@ -127,7 +161,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerDeviceWithBackend = async () => {
     try {
-      // Get device info from storage
       let deviceId = 'unknown-device';
       let fcmToken = '';
       
@@ -135,12 +168,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deviceId = localStorage.getItem('deviceId') || 'web-device';
         fcmToken = localStorage.getItem('fcmToken') || '';
       } else {
-        // For native, we'd need to import Device and get the ID
-        // For now, use a placeholder
         deviceId = 'native-device';
       }
       
-      // Import API utilities dynamically to avoid circular dependencies
       const { authenticatedPost } = await import('@/utils/api');
       
       const response = await authenticatedPost('/api/register-device', {
@@ -151,32 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[Device] Device registered with backend:', response);
     } catch (error) {
       console.error('[Device] Failed to register device with backend:', error);
-      // Don't throw - device registration is not critical
-    }
-  };
-
-  const signInWithEmail = async (email: string, password: string) => {
-    try {
-      await authClient.signIn.email({ email, password });
-      await fetchUser();
-    } catch (error) {
-      console.error("Email sign in failed:", error);
-      throw error;
-    }
-  };
-
-  const signUpWithEmail = async (email: string, password: string, name?: string) => {
-    try {
-      await authClient.signUp.email({
-        email,
-        password,
-        name,
-        // Ensure name is passed in header or logic if required, usually passed in body
-      });
-      await fetchUser();
-    } catch (error) {
-      console.error("Email sign up failed:", error);
-      throw error;
     }
   };
 
@@ -187,65 +191,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await setBearerToken(token);
         await fetchUser();
       } else {
-        // Native: Use expo-linking to generate a proper deep link
         const callbackURL = Linking.createURL("/");
         await authClient.signIn.social({
           provider,
           callbackURL,
         });
-        // Note: The redirect will reload the app or be handled by deep linking.
-        // fetchUser will be called on mount or via event listener if needed.
-        // For simple flow, we might need to listen to URL events.
-        // But better-auth expo client handles the redirect and session storage?
-        // We typically need to wait or rely on fetchUser on next app load.
-        // For now, call fetchUser just in case.
         await fetchUser();
       }
     } catch (error) {
       console.error(`${provider} sign in failed:`, error);
-      throw error;
-    }
-  };
-
-  const signInWithPhone = async (phoneNumber: string) => {
-    try {
-      console.log("[Auth] Sending OTP to phone:", phoneNumber);
-      const { apiPost } = await import('@/utils/api');
-      await apiPost('/api/phone/send-otp', { phoneNumber });
-      console.log("[Auth] OTP sent successfully");
-    } catch (error) {
-      console.error("[Auth] Failed to send OTP:", error);
-      throw error;
-    }
-  };
-
-  const verifyOTP = async (phoneNumber: string, otpCode: string, fullName?: string, deviceId?: string) => {
-    try {
-      console.log("[Auth] Verifying OTP for phone:", phoneNumber);
-      const { apiPost } = await import('@/utils/api');
-      const response = await apiPost('/api/phone/verify-otp', {
-        phoneNumber,
-        otpCode,
-        fullName,
-        deviceId: deviceId || 'unknown-device',
-      });
-      
-      // Store the access token
-      if (response.accessToken) {
-        await setBearerToken(response.accessToken);
-      }
-      
-      // Set user from response
-      if (response.user) {
-        setUser(response.user);
-      }
-      
-      // Register device with backend
-      await registerDeviceWithBackend();
-      
-      console.log("[Auth] OTP verified successfully, user logged in");
-    } catch (error) {
-      console.error("[Auth] OTP verification failed:", error);
       throw error;
     }
   };
@@ -260,7 +214,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Sign out failed (API):", error);
     } finally {
-       // Always clear local state
        setUser(null);
        await clearAuthTokens();
     }
@@ -271,10 +224,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         loading,
-        signInWithEmail,
-        signUpWithEmail,
-        signInWithPhone,
-        verifyOTP,
         signInWithGoogle,
         signInWithApple,
         signInWithGitHub,
