@@ -49,7 +49,7 @@ export default function ChatbotScreen() {
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       type: 'bot',
-      content: '👋 Welcome to MoMo Analytics AI Chatbot!\n\nPaste your MoMo SMS message below and I\'ll analyze it through our 7-layer security framework to detect fraud and provide insights.',
+      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our 7-layer security framework.\n\n✅ Supported Providers:\n• MTN MoMo\n• Vodafone Cash\n• AirtelTigo Money\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Example SMS:\n"MTN MoMo: You sent GHS 100.00 to 0241234567 on 14/Feb/2024 at 2:45pm. Ref: MTN123456. New Balance: GHS 1,450.50"',
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
@@ -66,22 +66,36 @@ export default function ChatbotScreen() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const smsText = inputText;
     setInputText('');
     setLoading(true);
 
-    console.log('[Chatbot] Analyzing SMS:', inputText);
+    console.log('[Chatbot] Analyzing SMS:', smsText);
 
     try {
       const response = await authenticatedPost<{
+        success: boolean;
         reply: string;
         transactionAnalysis: any;
         riskLevel: string;
         shouldAlert: boolean;
+        error?: string;
       }>('/api/chatbot/analyze-sms', {
-        smsMessage: inputText,
+        smsMessage: smsText,
       });
 
       console.log('[Chatbot] Analysis complete:', response);
+
+      if (!response.success && response.error) {
+        const errorMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'bot',
+          content: `❌ ${response.error}\n\nPlease paste a valid MoMo transaction SMS (MTN, Vodafone, or AirtelTigo).`,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+        return;
+      }
 
       const botMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -93,13 +107,14 @@ export default function ChatbotScreen() {
       };
 
       setMessages(prev => [...prev, botMessage]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Chatbot] Analysis failed:', error);
       
+      const errorText = error?.message || 'Unknown error';
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: '❌ Sorry, I couldn\'t analyze that message. Please make sure it\'s a valid MoMo SMS and try again.',
+        content: `❌ Analysis Failed\n\n${errorText}\n\nPlease make sure you're pasting a valid MoMo transaction SMS from MTN, Vodafone, or AirtelTigo.`,
         timestamp: new Date(),
       };
 
