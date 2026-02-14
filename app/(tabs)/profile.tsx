@@ -192,54 +192,23 @@ export default function ProfileScreen() {
             </Text>
           )}
 
-          {/* Email Verification Status */}
+          {/* Email Verification Status - Optional for Testing */}
           {user?.email && (
             <View style={styles.verificationContainer}>
-              {(user as any).emailVerified ? (
-                <View style={styles.verifiedBadge}>
-                  <IconSymbol
-                    ios_icon_name="checkmark.circle.fill"
-                    android_material_icon_name="check-circle"
-                    size={16}
-                    color={colors.success}
-                  />
-                  <Text style={[styles.verifiedText, { color: colors.success }]}>
-                    Email Verified
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.unverifiedContainer}>
-                  <View style={styles.unverifiedBadge}>
-                    <IconSymbol
-                      ios_icon_name="exclamationmark.circle.fill"
-                      android_material_icon_name="error"
-                      size={16}
-                      color={colors.warning}
-                    />
-                    <Text style={[styles.unverifiedText, { color: colors.warning }]}>
-                      Email Not Verified
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.resendButton}
-                    onPress={handleResendVerification}
-                    disabled={resendingVerification}
-                  >
-                    {resendingVerification ? (
-                      <ActivityIndicator size="small" color={colors.primary} />
-                    ) : (
-                      <Text style={[styles.resendButtonText, { color: colors.primary }]}>
-                        Resend Verification Email
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                  {verificationMessage ? (
-                    <Text style={[styles.verificationMessage, { color: verificationMessage.includes("sent") ? colors.success : colors.error }]}>
-                      {verificationMessage}
-                    </Text>
-                  ) : null}
-                </View>
-              )}
+              <View style={styles.verifiedBadge}>
+                <IconSymbol
+                  ios_icon_name="checkmark.circle.fill"
+                  android_material_icon_name="check-circle"
+                  size={16}
+                  color={colors.success}
+                />
+                <Text style={[styles.verifiedText, { color: colors.success }]}>
+                  Account Active (Testing Mode)
+                </Text>
+              </View>
+              <Text style={[styles.testingNote, { color: textSecondary }]}>
+                Email verification bypassed for testing
+              </Text>
             </View>
           )}
         </View>
@@ -440,6 +409,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
     textAlign: "center",
+  },
+  testingNote: {
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: "center",
+    fontStyle: "italic",
   },
   card: {
     borderRadius: 12,

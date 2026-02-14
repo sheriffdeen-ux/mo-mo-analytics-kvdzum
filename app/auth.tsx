@@ -24,7 +24,7 @@ export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const { loading: authLoading } = useAuth();
+  const { loading: authLoading, fetchUser } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
@@ -127,26 +127,34 @@ export default function AuthScreen() {
         requestBody.phoneNumber = formattedPhone;
       }
 
+      console.log("[Auth] Sending signup request...");
       const response = await apiPost('/api/auth/signup', requestBody);
       
       if (response.success === false) {
         throw new Error(response.error || response.message || "Failed to create account");
       }
       
+      console.log("[Auth] Signup response:", response);
+      
+      // Store the access token - backend now returns token immediately
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
         console.log("[Auth] Access token stored successfully");
       } else if (response.token) {
         await setBearerToken(response.token);
-        console.log("[Auth] Access token stored successfully");
+        console.log("[Auth] Token stored successfully");
       }
       
-      console.log("✅ Account created successfully, redirecting to home...");
-      setSuccessMessage("Account created! A verification email has been sent.");
+      // Fetch user data to update context
+      await fetchUser();
       
+      console.log("✅ Account created successfully! Email verification bypassed for testing. Redirecting to home...");
+      setSuccessMessage("Account created successfully! You can now use the app.");
+      
+      // Redirect to home page
       setTimeout(() => {
         router.replace("/(tabs)/(home)/");
-      }, 1000);
+      }, 500);
     } catch (err: any) {
       console.error("❌ Failed to create account:", err);
       let errorMessage = "Failed to create account. Please try again.";
@@ -195,22 +203,34 @@ export default function AuthScreen() {
         deviceId: deviceFingerprint,
       };
 
+      console.log("[Auth] Sending login request...");
       const response = await apiPost('/api/auth/login', requestBody);
       
       if (response.success === false) {
         throw new Error(response.error || response.message || "Invalid email or password");
       }
       
+      console.log("[Auth] Login response:", response);
+      
+      // Store the access token - backend now allows login without email verification
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
         console.log("[Auth] Access token stored successfully");
       } else if (response.token) {
         await setBearerToken(response.token);
-        console.log("[Auth] Access token stored successfully");
+        console.log("[Auth] Token stored successfully");
       }
       
-      console.log("✅ Login successful, redirecting to home...");
-      router.replace("/(tabs)/(home)/");
+      // Fetch user data to update context
+      await fetchUser();
+      
+      console.log("✅ Login successful! Email verification not required for testing. Redirecting to home...");
+      setSuccessMessage("Login successful! Welcome back.");
+      
+      // Redirect to home page
+      setTimeout(() => {
+        router.replace("/(tabs)/(home)/");
+      }, 500);
     } catch (err: any) {
       console.error("❌ Login failed:", err);
       let errorMessage = "Invalid email or password. Please try again.";
@@ -282,6 +302,7 @@ export default function AuthScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            editable={!loading}
           />
 
           <View style={styles.passwordContainer}>
@@ -294,10 +315,12 @@ export default function AuthScreen() {
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!loading}
             />
             <TouchableOpacity
               style={styles.eyeButton}
               onPress={() => setShowPassword(!showPassword)}
+              disabled={loading}
             >
               <Text style={[styles.eyeText, { color: isDark ? colors.textSecondary : "#666" }]}>
                 {showPassword ? "👁️" : "👁️‍🗨️"}
@@ -314,6 +337,7 @@ export default function AuthScreen() {
                 value={fullName}
                 onChangeText={setFullName}
                 autoCapitalize="words"
+                editable={!loading}
               />
 
               <TextInput
@@ -325,6 +349,7 @@ export default function AuthScreen() {
                 keyboardType="phone-pad"
                 autoCapitalize="none"
                 autoCorrect={false}
+                editable={!loading}
               />
             </React.Fragment>
           )}
@@ -354,8 +379,6 @@ export default function AuthScreen() {
                 : "Already have an account? Sign in"}
             </Text>
           </TouchableOpacity>
-
-
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: isDark ? colors.textSecondary : "#666" }]}>
