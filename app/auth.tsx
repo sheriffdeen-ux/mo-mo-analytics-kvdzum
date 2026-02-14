@@ -421,6 +421,70 @@ export default function AuthScreen() {
             </React.Fragment>
           ) : null}
 
+          {mode === "email" && (
+            <TouchableOpacity
+              style={styles.devBypassButton}
+              onPress={async () => {
+                if (!email) {
+                  setError("Please enter your email address first");
+                  return;
+                }
+                
+                if (!validateEmail(email)) {
+                  setError("Please enter a valid email address");
+                  return;
+                }
+                
+                setLoading(true);
+                setError("");
+                setSuccessMessage("");
+                console.log("[DEV] Marking account as verified:", email);
+                
+                try {
+                  const { apiPost, setBearerToken } = await import('@/utils/api');
+                  const response = await apiPost('/api/auth/email/mark-verified', {
+                    email: email.toLowerCase().trim(),
+                  });
+                  
+                  if (response.success === false) {
+                    throw new Error(response.error || "Failed to mark as verified");
+                  }
+                  
+                  if (response.accessToken) {
+                    await setBearerToken(response.accessToken);
+                    console.log("[DEV] ✅ Account marked as verified, redirecting to home...");
+                    setSuccessMessage("Account verified! Redirecting...");
+                    
+                    // Small delay to show success message
+                    setTimeout(() => {
+                      router.replace("/(tabs)/(home)/");
+                    }, 500);
+                  } else {
+                    setSuccessMessage("Account verified! You can now log in normally.");
+                  }
+                } catch (err: any) {
+                  console.error("[DEV] ❌ Failed to mark as verified:", err);
+                  let errorMessage = "Failed to bypass verification. ";
+                  
+                  if (err?.message?.includes("User not found")) {
+                    errorMessage += "Please sign up first by sending an OTP.";
+                  } else if (err?.message) {
+                    errorMessage = err.message;
+                  }
+                  
+                  setError(errorMessage);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+            >
+              <Text style={styles.devBypassText}>
+                🔓 Dev Mode: Skip Verification
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: isDark ? colors.textSecondary : "#666" }]}>
               By continuing, you agree to our Terms of Service and Privacy Policy
@@ -584,6 +648,20 @@ const styles = StyleSheet.create({
   resendText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  devBypassButton: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: "#fff3cd",
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#ffc107",
+    alignItems: "center",
+  },
+  devBypassText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#856404",
   },
   footer: {
     marginTop: 32,

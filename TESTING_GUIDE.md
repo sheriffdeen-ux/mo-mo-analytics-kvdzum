@@ -13,7 +13,70 @@ This guide will help you test all the features of the MoMo Analytics application
 
 ## 🔐 1. Authentication Testing
 
-### Phone Number OTP Login
+### Method 1: Email OTP Login (Primary Method)
+
+**Step 1: Open the App**
+- Launch the app on your device/emulator
+- You should see the authentication screen with email input
+
+**Step 2: Enter User Details**
+- **Email Address:** Enter your email (e.g., "test@example.com")
+- **Full Name:** Enter your name (e.g., "John Doe")
+- **Phone Number (Optional):** Enter a phone number (e.g., "0241234567")
+
+**Step 3: Send OTP**
+- Click "Send OTP" button
+- Wait for the OTP code to be sent to your email
+- The OTP is valid for **5 minutes**
+- **Rate Limit:** Maximum 3 OTP requests per email per hour
+
+**Step 4: Check for OTP**
+- **In Production:** Check your email inbox for the OTP code
+- **In Development Mode:** Look for the yellow "Development Mode" box that displays the OTP code
+  - This box only appears when email verification is disabled in backend
+  - Shows: "🔓 Development Mode - Your OTP code is: XXXXXX"
+
+**Step 5: Verify OTP**
+- Enter the 6-digit OTP code
+- Click "Verify OTP"
+- **Maximum 3 attempts** per OTP code
+- On successful verification:
+  - You'll be logged in
+  - A 14-day free trial will be activated
+  - You'll have access to all Pro features
+  - Redirected to home screen
+
+**Step 6: Resend OTP (if needed)**
+- If you didn't receive the OTP, wait for the countdown to reach 0
+- Click "Resend OTP"
+- A new OTP will be sent to your email
+- Previous OTP will be invalidated
+
+### Method 2: Development Bypass (Testing Only) 🔓
+
+This method allows you to skip email verification for faster testing.
+
+**Step 1: Enter Email**
+- Open the app
+- Enter your email address (e.g., "test@example.com")
+- **Do NOT click "Send OTP"**
+
+**Step 2: Use Dev Bypass**
+- Scroll down to find the yellow button: **"🔓 Dev Mode: Skip Verification"**
+- Click the button
+
+**Expected Result:**
+- ✅ Account automatically marked as verified
+- ✅ Access token generated
+- ✅ Redirected to home screen immediately
+- ✅ No OTP required!
+
+**Important Notes:**
+- ⚠️ This button only works if the user already exists (must sign up first with OTP)
+- ⚠️ If user doesn't exist, you'll see: "User not found. Please sign up first by sending an OTP."
+- ⚠️ This is for development/testing only - will be removed in production
+
+### Method 3: Phone Number OTP Login (Legacy)
 
 **Step 1: Open the App**
 - Launch the app on your device/emulator
@@ -47,15 +110,18 @@ This guide will help you test all the features of the MoMo Analytics application
 - Same rate limiting applies
 
 ### Expected Results
-✅ OTP sent successfully  
+✅ OTP sent successfully (email or SMS)  
 ✅ User logged in with 14-day trial  
 ✅ Redirected to home screen (Transactions)  
 ✅ User profile shows trial status  
+✅ Dev bypass works for existing users  
 
 ### Troubleshooting
-❌ **"Failed to send OTP"** - Check phone number format (must be Ghana number)  
+❌ **"Failed to send OTP"** - Check email/phone format  
 ❌ **"Invalid OTP code"** - Verify you entered the correct 6-digit code  
 ❌ **"Rate limit exceeded"** - Wait 1 hour before requesting more OTPs  
+❌ **"User not found" (Dev Bypass)** - Sign up first with OTP, then use bypass  
+❌ **OTP not received** - Check email spam folder or use dev mode OTP display  
 
 ---
 
@@ -290,14 +356,56 @@ This guide will help you test all the features of the MoMo Analytics application
 
 Use the following curl commands to test endpoints directly:
 
-#### 1. Send OTP
+#### 1. Send Email OTP
+```bash
+curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/auth/email/send-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "fullName": "John Doe",
+    "phoneNumber": "+233241234567"
+  }'
+```
+
+#### 2. Verify Email OTP
+```bash
+curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/auth/email/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com",
+    "otpCode": "123456",
+    "fullName": "John Doe",
+    "deviceId": "test-device-123",
+    "phoneNumber": "+233241234567"
+  }'
+```
+
+#### 3. Resend Email OTP
+```bash
+curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/auth/email/resend-otp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com"
+  }'
+```
+
+#### 4. Mark Email as Verified (Dev Mode Only)
+```bash
+curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/auth/email/mark-verified \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "test@example.com"
+  }'
+```
+
+#### 5. Send Phone OTP (Legacy)
 ```bash
 curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/phone/send-otp \
   -H "Content-Type: application/json" \
   -d '{"phoneNumber": "+233241234567"}'
 ```
 
-#### 2. Verify OTP
+#### 6. Verify Phone OTP (Legacy)
 ```bash
 curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/phone/verify-otp \
   -H "Content-Type: application/json" \
@@ -309,36 +417,36 @@ curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/phone
   }'
 ```
 
-#### 3. Get Subscription Plans
+#### 7. Get Subscription Plans
 ```bash
 curl https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/subscriptions/plans
 ```
 
-#### 4. Get Subscription Status (Protected)
+#### 8. Get Subscription Status (Protected)
 ```bash
 curl https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/subscriptions/status \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-#### 5. Get Transactions (Protected)
+#### 9. Get Transactions (Protected)
 ```bash
 curl https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/transactions?page=1&limit=20 \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-#### 6. Get Analytics Summary (Protected)
+#### 10. Get Analytics Summary (Protected)
 ```bash
 curl https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/analytics/summary \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-#### 7. Get Settings (Protected)
+#### 11. Get Settings (Protected)
 ```bash
 curl https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/settings \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-#### 8. Update Settings (Protected)
+#### 12. Update Settings (Protected)
 ```bash
 curl -X PUT https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/settings \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
@@ -349,7 +457,7 @@ curl -X PUT https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/settin
   }'
 ```
 
-#### 9. Block Merchant (Protected)
+#### 13. Block Merchant (Protected)
 ```bash
 curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/transactions/TRANSACTION_ID/block \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
@@ -357,7 +465,7 @@ curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/trans
   -d '{}'
 ```
 
-#### 10. Report Fraud (Protected)
+#### 14. Report Fraud (Protected)
 ```bash
 curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/transactions/TRANSACTION_ID/report-fraud \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
@@ -365,7 +473,7 @@ curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/trans
   -d '{}'
 ```
 
-#### 11. Confirm Safe (Protected)
+#### 15. Confirm Safe (Protected)
 ```bash
 curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/transactions/TRANSACTION_ID/confirm-safe \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
@@ -373,7 +481,7 @@ curl -X POST https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/trans
   -d '{}'
 ```
 
-#### 12. Get Privacy Policy
+#### 16. Get Privacy Policy
 ```bash
 curl https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/legal/privacy-policy
 ```
@@ -413,11 +521,16 @@ curl https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev/api/legal/privacy
 Use this checklist to ensure all features are tested:
 
 ### Authentication
-- [ ] Send OTP to Ghana phone number
-- [ ] Receive OTP via SMS
-- [ ] Verify OTP successfully
+- [ ] Send email OTP
+- [ ] Receive OTP via email
+- [ ] Verify email OTP successfully
 - [ ] Login with 14-day trial
-- [ ] Resend OTP works
+- [ ] Resend email OTP works
+- [ ] Dev bypass button works (existing users)
+- [ ] Dev mode OTP display works (development)
+- [ ] Send phone OTP (legacy)
+- [ ] Receive OTP via SMS (legacy)
+- [ ] Verify phone OTP successfully (legacy)
 - [ ] Rate limiting enforced
 - [ ] Logout works
 
