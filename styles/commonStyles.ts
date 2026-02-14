@@ -42,6 +42,7 @@ export const colors = {
   
   // Legacy colors for compatibility
   backgroundAlt: '#162133',
+  cardBackground: '#1A1F2E',
   grey: '#90CAF9',
 };
 

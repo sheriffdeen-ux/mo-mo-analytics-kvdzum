@@ -215,8 +215,149 @@ export default function ProfileScreen() {
 
 
 
-        {/* Quick Actions */}
+        {/* Security & Fraud Detection */}
         <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text style={[styles.cardTitle, { color: textColor }]}>
+            Security & Fraud Detection
+          </Text>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/security-dashboard")}
+          >
+            <IconSymbol
+              ios_icon_name="shield.checkered"
+              android_material_icon_name="security"
+              size={24}
+              color={colors.primary}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                7-Layer Security
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                Real-time fraud detection dashboard
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/alerts")}
+          >
+            <IconSymbol
+              ios_icon_name="bell.badge.fill"
+              android_material_icon_name="notifications"
+              size={24}
+              color={colors.warning}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                Security Alerts
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                View and manage fraud alerts
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/chatbot")}
+          >
+            <IconSymbol
+              ios_icon_name="message.badge.fill"
+              android_material_icon_name="chat"
+              size={24}
+              color={colors.accent}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                AI Fraud Analyzer
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                Analyze SMS messages for fraud
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/behavior-profile")}
+          >
+            <IconSymbol
+              ios_icon_name="person.badge.shield.checkmark.fill"
+              android_material_icon_name="person"
+              size={24}
+              color={colors.success}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                Behavior Profile
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                Your transaction patterns
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/blacklist")}
+          >
+            <IconSymbol
+              ios_icon_name="hand.raised.fill"
+              android_material_icon_name="block"
+              size={24}
+              color={colors.error}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                Blacklist
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                Manage blocked recipients
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Settings & Reports */}
+        <View style={[styles.card, { backgroundColor: cardBg }]}>
+          <Text style={[styles.cardTitle, { color: textColor }]}>
+            Settings & Reports
+          </Text>
+
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => router.push("/upgrade")}
