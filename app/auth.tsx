@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -18,22 +18,39 @@ import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import * as Device from "expo-device";
 
-type AuthMode = "phone" | "otp" | "email";
+type AuthMode = "email" | "otp";
 
 export default function AuthScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
-  const { signInWithPhone, verifyOTP, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
 
-  const [mode, setMode] = useState<AuthMode>("phone");
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [mode, setMode] = useState<AuthMode>("email");
+  const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [deviceFingerprint, setDeviceFingerprint] = useState("");
+  const [devModeOtp, setDevModeOtp] = useState<string | null>(null);
+
+  useEffect(() => {
+    generateDeviceFingerprint();
+  }, []);
+
+  const generateDeviceFingerprint = async () => {
+    const deviceId = Device.modelId || "unknown-device";
+    const osVersion = Device.osVersion || "unknown";
+    const brand = Device.brand || "unknown";
+    const fingerprint = `${deviceId}-${brand}-${osVersion}-${Date.now()}`;
+    setDeviceFingerprint(fingerprint);
+    console.log("[Auth] Device fingerprint generated:", fingerprint);
+  };
 
   if (authLoading) {
     return (
@@ -43,38 +60,78 @@ export default function AuthScreen() {
     );
   }
 
+  const validateEmail = (emailText: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(emailText);
+  };
+
   const formatPhoneNumber = (text: string) => {
     const cleaned = text.replace(/\D/g, "");
+    
     if (cleaned.startsWith("233")) {
       return `+${cleaned}`;
     } else if (cleaned.startsWith("0")) {
       return `+233${cleaned.substring(1)}`;
+    } else if (cleaned.length === 9) {
+      return `+233${cleaned}`;
     } else if (cleaned.length > 0) {
       return `+233${cleaned}`;
     }
+    
     return text;
   };
 
   const handleSendOTP = async () => {
-    if (!phoneNumber) {
-      setError("Please enter your phone number");
+    if (!email) {
+      setError("Please enter your email address");
       return;
     }
 
-    const formattedPhone = formatPhoneNumber(phoneNumber);
-    if (formattedPhone.length < 13) {
-      setError("Please enter a valid Ghana phone number");
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    if (!fullName) {
+      setError("Please enter your full name");
       return;
     }
 
     setLoading(true);
     setError("");
-    console.log("[Auth] Sending OTP to:", formattedPhone);
+    setSuccessMessage("");
+    console.log("[Auth] Sending OTP to email:", email);
 
     try {
-      await signInWithPhone(formattedPhone);
+      const { apiPost } = await import('@/utils/api');
+      
+      const requestBody: any = {
+        email: email.toLowerCase().trim(),
+        fullName: fullName.trim(),
+      };
+
+      if (phoneNumber) {
+        const formattedPhone = formatPhoneNumber(phoneNumber);
+        requestBody.phoneNumber = formattedPhone;
+      }
+
+      const response = await apiPost('/api/auth/email/send-otp', requestBody);
+      
+      if (response.success === false) {
+        throw new Error(response.error || "Failed to send OTP");
+      }
+      
+      // Check if backend returned OTP code (development mode only)
+      if (response.otpCode) {
+        setDevModeOtp(response.otpCode);
+        console.log("🔓 [DEV MODE] OTP code received from backend:", response.otpCode);
+      } else {
+        setDevModeOtp(null);
+      }
+      
       setOtpSent(true);
       setMode("otp");
+      setSuccessMessage(`OTP sent to ${email}. Please check your email inbox.`);
       setCountdown(60);
       
       const timer = setInterval(() => {
@@ -87,10 +144,18 @@ export default function AuthScreen() {
         });
       }, 1000);
 
-      console.log("✅ OTP sent successfully");
+      console.log("✅ OTP sent successfully to", email);
     } catch (err: any) {
       console.error("❌ Failed to send OTP:", err);
-      setError(err.message || "Failed to send OTP. Please try again.");
+      let errorMessage = "Failed to send OTP. Please check your email and try again.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -98,24 +163,59 @@ export default function AuthScreen() {
 
   const handleVerifyOTP = async () => {
     if (!otpCode || otpCode.length !== 6) {
-      setError("Please enter the 6-digit OTP code");
+      setError("Please enter the complete 6-digit OTP code");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(otpCode)) {
+      setError("OTP code must contain only numbers");
       return;
     }
 
     setLoading(true);
     setError("");
-    console.log("[Auth] Verifying OTP for:", phoneNumber);
+    console.log("[Auth] Verifying OTP for:", email);
 
     try {
-      const deviceId = Device.modelId || "unknown-device";
-      const formattedPhone = formatPhoneNumber(phoneNumber);
+      const { apiPost, setBearerToken } = await import('@/utils/api');
       
-      await verifyOTP(formattedPhone, otpCode, fullName || undefined, deviceId);
-      console.log("✅ OTP verified successfully, redirecting...");
+      const requestBody: any = {
+        email: email.toLowerCase().trim(),
+        otpCode,
+        fullName: fullName.trim(),
+        deviceId: deviceFingerprint,
+      };
+
+      if (phoneNumber) {
+        const formattedPhone = formatPhoneNumber(phoneNumber);
+        requestBody.phoneNumber = formattedPhone;
+      }
+
+      const response = await apiPost('/api/auth/email/verify-otp', requestBody);
+      
+      if (response.success === false) {
+        throw new Error(response.error || "Invalid OTP code");
+      }
+      
+      if (response.accessToken) {
+        await setBearerToken(response.accessToken);
+        console.log("[Auth] Access token stored successfully");
+      }
+      
+      console.log("✅ OTP verified successfully, redirecting to home...");
       router.replace("/(tabs)/(home)/");
     } catch (err: any) {
       console.error("❌ OTP verification failed:", err);
-      setError(err.message || "Invalid OTP code. Please try again.");
+      let errorMessage = "Invalid OTP code. Please check and try again.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      setError(errorMessage);
+      setOtpCode("");
     } finally {
       setLoading(false);
     }
@@ -126,11 +226,29 @@ export default function AuthScreen() {
     
     setLoading(true);
     setError("");
-    console.log("[Auth] Resending OTP to:", phoneNumber);
+    setSuccessMessage("");
+    setOtpCode("");
+    console.log("[Auth] Resending OTP to:", email);
 
     try {
-      const formattedPhone = formatPhoneNumber(phoneNumber);
-      await signInWithPhone(formattedPhone);
+      const { apiPost } = await import('@/utils/api');
+      const response = await apiPost('/api/auth/email/resend-otp', {
+        email: email.toLowerCase().trim(),
+      });
+      
+      if (response.success === false) {
+        throw new Error(response.error || "Failed to resend OTP");
+      }
+      
+      // Check if backend returned OTP code (development mode only)
+      if (response.otpCode) {
+        setDevModeOtp(response.otpCode);
+        console.log("🔓 [DEV MODE] OTP code received from backend:", response.otpCode);
+      } else {
+        setDevModeOtp(null);
+      }
+      
+      setSuccessMessage("New OTP sent! Please check your email inbox.");
       setCountdown(60);
       
       const timer = setInterval(() => {
@@ -143,10 +261,18 @@ export default function AuthScreen() {
         });
       }, 1000);
 
-      console.log("✅ OTP resent successfully");
+      console.log("✅ OTP resent successfully to", email);
     } catch (err: any) {
       console.error("❌ Failed to resend OTP:", err);
-      setError(err.message || "Failed to resend OTP. Please try again.");
+      let errorMessage = "Failed to resend OTP. Please try again.";
+      
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -176,7 +302,8 @@ export default function AuthScreen() {
             MoMo Analytics
           </Text>
           <Text style={[styles.subtitle, { color: isDark ? colors.textSecondary : "#666" }]}>
-            {mode === "phone" ? "Enter your phone number to get started" : "Enter the OTP code sent to your phone"}
+            {mode === "email" && "Enter your details to get started"}
+            {mode === "otp" && "Enter the OTP code sent to your email"}
           </Text>
 
           {error ? (
@@ -185,8 +312,36 @@ export default function AuthScreen() {
             </View>
           ) : null}
 
-          {mode === "phone" ? (
+          {successMessage ? (
+            <View style={styles.successContainer}>
+              <Text style={styles.successText}>{successMessage}</Text>
+            </View>
+          ) : null}
+
+          {devModeOtp ? (
+            <View style={styles.devModeContainer}>
+              <Text style={styles.devModeTitle}>🔓 Development Mode</Text>
+              <Text style={styles.devModeText}>Your OTP code is:</Text>
+              <Text style={styles.devModeOtp}>{devModeOtp}</Text>
+              <Text style={styles.devModeNote}>
+                (This is only shown in preview mode. In production, you'll receive the OTP via email only.)
+              </Text>
+            </View>
+          ) : null}
+
+          {mode === "email" ? (
             <React.Fragment>
+              <TextInput
+                style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
+                placeholder="Email Address"
+                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
               <TextInput
                 style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
                 placeholder="Full Name"
@@ -198,7 +353,7 @@ export default function AuthScreen() {
 
               <TextInput
                 style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
-                placeholder="Phone Number (e.g., 0241234567)"
+                placeholder="Phone Number (Optional, e.g., 0241234567)"
                 placeholderTextColor={isDark ? colors.textSecondary : "#999"}
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
@@ -219,14 +374,14 @@ export default function AuthScreen() {
                 )}
               </TouchableOpacity>
             </React.Fragment>
-          ) : (
+          ) : mode === "otp" ? (
             <React.Fragment>
-              <View style={styles.phoneDisplay}>
-                <Text style={[styles.phoneDisplayText, { color: textColor }]}>
-                  {formatPhoneNumber(phoneNumber)}
+              <View style={styles.emailDisplay}>
+                <Text style={[styles.emailDisplayText, { color: textColor }]}>
+                  {email}
                 </Text>
-                <TouchableOpacity onPress={() => setMode("phone")}>
-                  <Text style={[styles.changePhoneText, { color: colors.primary }]}>Change</Text>
+                <TouchableOpacity onPress={() => setMode("email")}>
+                  <Text style={[styles.changeEmailText, { color: colors.primary }]}>Change</Text>
                 </TouchableOpacity>
               </View>
 
@@ -264,7 +419,7 @@ export default function AuthScreen() {
                 </Text>
               </TouchableOpacity>
             </React.Fragment>
-          )}
+          ) : null}
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: isDark ? colors.textSecondary : "#666" }]}>
@@ -299,8 +454,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
   title: {
     fontSize: 32,
@@ -324,6 +480,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
   },
+  successContainer: {
+    backgroundColor: "#e8f5e9",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  successText: {
+    color: "#2e7d32",
+    fontSize: 14,
+    textAlign: "center",
+  },
+  devModeContainer: {
+    backgroundColor: "#fff3cd",
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: "#ffc107",
+  },
+  devModeTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#856404",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  devModeText: {
+    fontSize: 14,
+    color: "#856404",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  devModeOtp: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#856404",
+    textAlign: "center",
+    letterSpacing: 8,
+    marginVertical: 8,
+  },
+  devModeNote: {
+    fontSize: 12,
+    color: "#856404",
+    textAlign: "center",
+    marginTop: 8,
+    fontStyle: "italic",
+  },
   input: {
     height: 50,
     borderWidth: 1,
@@ -343,18 +546,18 @@ const styles = StyleSheet.create({
     letterSpacing: 8,
     fontWeight: "600",
   },
-  phoneDisplay: {
+  emailDisplay: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 24,
     paddingHorizontal: 8,
   },
-  phoneDisplayText: {
-    fontSize: 18,
+  emailDisplayText: {
+    fontSize: 16,
     fontWeight: "600",
   },
-  changePhoneText: {
+  changeEmailText: {
     fontSize: 14,
     fontWeight: "600",
   },

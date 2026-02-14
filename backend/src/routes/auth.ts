@@ -10,6 +10,7 @@ import {
   normalizePhoneNumber,
 } from "../utils/otp-service.js";
 import { sendOTPViaSMS } from "../utils/arkesel-sms.js";
+import { generateToken, getTokenExpirationSeconds } from "../utils/token-service.js";
 
 // In-memory rate limiting (for production, use Redis)
 const otpRateLimiter = new Map<
@@ -94,7 +95,8 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
         );
         return {
           success: false,
-          error: "Failed to send OTP. Please try again.",
+          error: smsResult.error || "Failed to send OTP. Please try again.",
+          details: "SMS service unavailable. Please check your phone number or try again later.",
         };
       }
 
@@ -202,6 +204,7 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
             userId: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             fullName: body.fullName,
             phoneNumber: normalizedPhone,
+            email: `phone_${normalizedPhone.replace(/\D/g, '')}@momo-analytics.app`, // Generate email from phone
             subscriptionStatus: "trial",
             trialEndDate,
           })
@@ -233,6 +236,10 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
         }
       }
 
+      // Generate authentication token (30-day expiration)
+      const accessToken = generateToken(userData.userId, normalizedPhone);
+      const expiresIn = getTokenExpirationSeconds();
+
       app.logger.info(
         { userId: userData.userId, phoneNumber: normalizedPhone },
         "User authenticated via OTP"
@@ -244,9 +251,14 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
           id: userData.userId,
           fullName: userData.fullName,
           phoneNumber: userData.phoneNumber,
+          email: userData.phoneNumber, // Use phone as email identifier
           subscriptionStatus: userData.subscriptionStatus,
           trialEndDate: userData.trialEndDate,
         },
+        // Authentication token for API requests (30 days expiration)
+        accessToken,
+        expiresIn, // Token expiration in seconds
+        tokenType: "Bearer",
       };
     } catch (error) {
       app.logger.error(
@@ -297,9 +309,14 @@ export function registerAuthRoutes(app: App, fastify: FastifyInstance) {
       const smsResult = await sendOTPViaSMS(normalizedPhone, otpCode);
 
       if (!smsResult.success) {
+        app.logger.error(
+          { phoneNumber: normalizedPhone, error: smsResult.error },
+          "Failed to resend OTP SMS"
+        );
         return {
           success: false,
-          error: "Failed to send OTP. Please try again.",
+          error: smsResult.error || "Failed to send OTP. Please try again.",
+          details: "SMS service unavailable. Please check your phone number or try again later.",
         };
       }
 

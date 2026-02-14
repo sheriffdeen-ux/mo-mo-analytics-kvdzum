@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "MoMo Analytics",
@@ -17,8 +16,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.Natively",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUserTrackingUsageDescription": "This app uses your device ID to help us understand how you use the app and improve your experience."
+      },
+      "usesIcloudStorage": true
     },
     "android": {
       "adaptiveIcon": {
@@ -26,7 +27,14 @@
         "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.anonymous.Natively",
+      "permissions": [
+        "android.permission.RECEIVE_SMS",
+        "android.permission.READ_SMS",
+        "android.permission.INTERNET",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",

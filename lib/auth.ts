@@ -26,16 +26,14 @@ export const authClient = createAuthClient({
       storage,
     }),
   ],
-  // On web, use cookies (credentials: include) and fallback to bearer token
-  ...(Platform.OS === "web" && {
-    fetchOptions: {
-      credentials: "include",
-      auth: {
-        type: "Bearer" as const,
-        token: () => localStorage.getItem(BEARER_TOKEN_KEY) || "",
-      },
-    },
-  }),
+  fetchOptions: {
+    // Reduce timeout to fail faster if backend is unreachable
+    timeout: 10000, // 10 seconds
+    // On web, use cookies (credentials: include) and fallback to bearer token
+    ...(Platform.OS === "web" && {
+      credentials: "include" as RequestCredentials,
+    }),
+  },
 });
 
 export async function setBearerToken(token: string) {

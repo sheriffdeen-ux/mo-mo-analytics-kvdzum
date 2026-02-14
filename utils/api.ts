@@ -1,7 +1,11 @@
+
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import { BEARER_TOKEN_KEY } from "@/lib/auth";
+import { BEARER_TOKEN_KEY, setBearerToken as setToken } from "@/lib/auth";
+
+// Re-export setBearerToken for convenience
+export { setToken as setBearerToken };
 
 /**
  * Backend URL is configured in app.json under expo.extra.backendUrl
@@ -53,7 +57,14 @@ export const apiCall = async <T = any>(
   }
 
   const url = `${BACKEND_URL}${endpoint}`;
-  console.log("[API] Calling:", url, options?.method || "GET");
+  const method = options?.method || "GET";
+  
+  console.log(`[API] ${method} ${url}`);
+  console.log("[API] Request options:", {
+    method,
+    headers: options?.headers,
+    body: options?.body ? JSON.parse(options.body as string) : undefined,
+  });
 
   try {
     const fetchOptions: RequestInit = {
@@ -64,8 +75,6 @@ export const apiCall = async <T = any>(
       },
     };
 
-    console.log("[API] Fetch options:", fetchOptions);
-
     // Always send the token if we have it (needed for cross-domain/iframe support)
     const token = await getBearerToken();
     if (token) {
@@ -73,21 +82,43 @@ export const apiCall = async <T = any>(
         ...fetchOptions.headers,
         Authorization: `Bearer ${token}`,
       };
+      console.log("[API] Added Authorization header with bearer token");
     }
 
+    console.log("[API] Making fetch request...");
     const response = await fetch(url, fetchOptions);
+    console.log(`[API] Response status: ${response.status} ${response.statusText}`);
 
     if (!response.ok) {
       const text = await response.text();
-      console.error("[API] Error response:", response.status, text);
+      console.error("[API] Error response:", {
+        status: response.status,
+        statusText: response.statusText,
+        body: text,
+      });
       throw new Error(`API error: ${response.status} - ${text}`);
     }
 
     const data = await response.json();
-    console.log("[API] Success:", data);
+    console.log("[API] Success response:", data);
     return data;
-  } catch (error) {
-    console.error("[API] Request failed:", error);
+  } catch (error: any) {
+    console.error("[API] Request failed:", {
+      error: error?.message || error,
+      stack: error?.stack,
+      name: error?.name,
+      cause: error?.cause,
+    });
+    
+    // Provide more specific error messages
+    if (error?.message?.includes('fetch')) {
+      throw new Error(`Network error: Unable to connect to ${BACKEND_URL}. Please check your internet connection.`);
+    } else if (error?.message?.includes('NetworkError')) {
+      throw new Error(`Network error: Unable to reach the server. Please check your internet connection.`);
+    } else if (error?.message?.includes('timeout')) {
+      throw new Error(`Request timeout: The server took too long to respond. Please try again.`);
+    }
+    
     throw error;
   }
 };
