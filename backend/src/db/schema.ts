@@ -17,10 +17,12 @@ export const userExtended = pgTable("user_extended", {
   fullName: text("full_name"),
   email: text("email").unique().notNull(), // Email for authentication
   emailVerified: boolean("email_verified").default(false), // Email verification status
+  verificationToken: text("verification_token"), // UUID token for email verification
+  verificationTokenExpiry: timestamp("verification_token_expiry", { withTimezone: true }), // Token expiry time
   passwordHash: text("password_hash"), // Hashed password
   passwordSalt: text("password_salt"), // Salt for password hashing
   businessName: text("business_name"),
-  phoneNumber: text("phone_number"), // Manual entry by user / profile only
+  phoneNumber: text("phone_number").notNull(), // Phone number (required)
   deviceFingerprint: text("device_fingerprint"),
   lastLoginDevice: text("last_login_device"),
   lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
@@ -50,6 +52,7 @@ export const userExtended = pgTable("user_extended", {
 }, (table) => [
   index("idx_user_extended_email").on(table.email),
   index("idx_user_extended_user_id").on(table.userId),
+  index("idx_user_extended_verification_token").on(table.verificationToken),
 ]);
 
 // Subscriptions table

@@ -11,6 +11,12 @@ import {
 } from "../utils/password-service.js";
 import { generateToken, getTokenExpirationSeconds } from "../utils/token-service.js";
 import { logAuthEvent } from "../utils/audit-log.js";
+import {
+  generateVerificationToken,
+  getTokenExpiryTime,
+  getVerificationLink,
+} from "../utils/verification-token-service.js";
+import { sendVerificationLinkEmail } from "../utils/email-service.js";
 
 // In-memory rate limiting for login attempts (3 per 15 minutes per email)
 const loginAttempts = new Map<string, { count: number; resetTime: number }>();
@@ -71,6 +77,13 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
           };
         }
 
+        if (!body.phoneNumber || body.phoneNumber.trim().length === 0) {
+          return {
+            success: false,
+            error: "Phone number is required",
+          };
+        }
+
         // Validate password strength
         const passwordValidation = validatePasswordStrength(body.password);
         if (!passwordValidation.valid) {
@@ -102,6 +115,10 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
         const trialEndDate = new Date();
         trialEndDate.setDate(trialEndDate.getDate() + 14);
 
+        // Generate verification token
+        const verificationToken = generateVerificationToken();
+        const verificationTokenExpiry = getTokenExpiryTime();
+
         const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
         const [newUser] = await app.db
@@ -112,9 +129,11 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
             email: normalizedEmail,
             passwordHash: hash,
             passwordSalt: salt,
-            phoneNumber: body.phoneNumber || null,
+            phoneNumber: body.phoneNumber.trim(),
             subscriptionStatus: "trial",
             trialEndDate,
+            verificationToken,
+            verificationTokenExpiry,
           })
           .returning();
 
@@ -140,6 +159,24 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
           }
         }
 
+        // Send verification link email
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+        const verificationLink = getVerificationLink(frontendUrl, verificationToken);
+
+        const emailResult = await sendVerificationLinkEmail(
+          normalizedEmail,
+          body.fullName.trim(),
+          verificationLink,
+          app.logger
+        );
+
+        if (!emailResult.success) {
+          app.logger.warn(
+            { email: normalizedEmail, error: emailResult.error },
+            "Failed to send verification email, but user created successfully"
+          );
+        }
+
         // Generate authentication token (30-day expiration)
         const accessToken = generateToken(userId, normalizedEmail);
         const expiresIn = getTokenExpirationSeconds();
@@ -157,13 +194,15 @@ export function registerEmailAuthRoutes(app: App, fastify: FastifyInstance) {
             id: userId,
             fullName: newUser.fullName,
             email: newUser.email,
-            phoneNumber: newUser.phoneNumber || undefined,
+            phoneNumber: newUser.phoneNumber,
             subscriptionStatus: newUser.subscriptionStatus,
             trialEndDate: newUser.trialEndDate,
+            emailVerified: newUser.emailVerified,
           },
           accessToken,
           expiresIn,
           tokenType: "Bearer",
+          message: "Account created successfully. Please verify your email to unlock all features.",
         };
       } catch (error) {
         app.logger.error(

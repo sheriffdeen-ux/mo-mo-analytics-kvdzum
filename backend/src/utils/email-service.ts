@@ -308,6 +308,246 @@ export async function sendVerificationEmail(
 }
 
 /**
+ * Generate HTML email template for verification link
+ */
+function generateVerificationLinkEmailTemplate(
+  fullName: string,
+  verificationLink: string,
+  expirationHours: number = 24
+): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - MoMo Analytics</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f9fafb;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .content {
+            padding: 40px 20px;
+            color: #374151;
+        }
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+        .button-section {
+            margin: 30px 0;
+            text-align: center;
+        }
+        .verify-button {
+            display: inline-block;
+            background-color: #667eea;
+            color: white;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .verify-button:hover {
+            background-color: #5568d3;
+        }
+        .expiration-notice {
+            background-color: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-size: 13px;
+            text-align: center;
+        }
+        .instructions {
+            margin: 30px 0;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #4b5563;
+        }
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        .footer {
+            background-color: #f9fafb;
+            border-top: 1px solid #e5e7eb;
+            padding: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .divider {
+            height: 1px;
+            background-color: #e5e7eb;
+            margin: 30px 0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+            .header {
+                padding: 30px 15px;
+            }
+            .content {
+                padding: 30px 15px;
+            }
+            .verify-button {
+                display: block;
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Verify Your Email</h1>
+        </div>
+
+        <div class="content">
+            <div class="greeting">
+                Hi ${fullName},
+            </div>
+
+            <p>Thank you for signing up with MoMo Analytics. To complete your registration and start using our fraud detection platform, please verify your email address.</p>
+
+            <div class="button-section">
+                <a href="${verificationLink}" class="verify-button">Verify Email Address</a>
+            </div>
+
+            <div class="expiration-notice">
+                ⏰ This verification link expires in <strong>${expirationHours} hours</strong>
+            </div>
+
+            <ol class="instructions">
+                <li>Click the "Verify Email Address" button above, or</li>
+                <li>Copy and paste this link in your browser:
+                    <br><small style="word-break: break-all; color: #6b7280;">${verificationLink}</small>
+                </li>
+                <li>Your email will be verified and you can start using MoMo Analytics</li>
+            </ol>
+
+            <p style="margin: 20px 0; font-size: 14px; color: #6b7280;">
+                If you didn't create this account, you can safely ignore this email.
+            </p>
+
+            <div class="divider"></div>
+
+            <p style="margin: 0; font-size: 13px; color: #9ca3af;">
+                <strong>Questions?</strong> If you need help, visit our <a href="https://momo-analytics.app/help" style="color: #667eea; text-decoration: none;">support page</a> or reply to this email.
+            </p>
+        </div>
+
+        <div class="footer">
+            <p style="margin: 0 0 10px 0;">© 2024 MoMo Analytics. All rights reserved.</p>
+            <p style="margin: 0;">
+                <a href="https://momo-analytics.app/privacy" style="color: #667eea; text-decoration: none; margin: 0 10px;">Privacy Policy</a> •
+                <a href="https://momo-analytics.app/terms" style="color: #667eea; text-decoration: none; margin: 0 10px;">Terms of Service</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
+ * Send verification link email
+ */
+export async function sendVerificationLinkEmail(
+  email: string,
+  fullName: string,
+  verificationLink: string,
+  logger?: any
+): Promise<{ success: boolean; error?: string; messageId?: string }> {
+  try {
+    const resend = getResendClient();
+
+    if (!resend) {
+      const errorMsg =
+        "RESEND_API_KEY not configured. Email sending disabled.";
+      logger?.warn(errorMsg);
+      return { success: false, error: errorMsg };
+    }
+
+    const htmlContent = generateVerificationLinkEmailTemplate(
+      fullName,
+      verificationLink,
+      24
+    );
+
+    logger?.info(
+      { email, fullName },
+      "Sending verification link email via Resend"
+    );
+
+    const response = await resend.emails.send({
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      to: email,
+      subject: "Verify your MoMo Analytics account",
+      html: htmlContent,
+    });
+
+    if (response.error) {
+      logger?.error(
+        { err: response.error, email },
+        "Failed to send verification link email"
+      );
+      return {
+        success: false,
+        error: `Email service error: ${response.error.message}`,
+      };
+    }
+
+    logger?.info(
+      { email, messageId: response.data?.id },
+      "Verification link email sent successfully"
+    );
+
+    return {
+      success: true,
+      messageId: response.data?.id,
+    };
+  } catch (error) {
+    const errorMsg =
+      error instanceof Error ? error.message : "Unknown error";
+    logger?.error(
+      { err: error, email },
+      "Error sending verification link email"
+    );
+    return {
+      success: false,
+      error: `Failed to send email: ${errorMsg}`,
+    };
+  }
+}
+
+/**
  * Check if email verification is required
  */
 export function isEmailVerificationRequired(): boolean {
