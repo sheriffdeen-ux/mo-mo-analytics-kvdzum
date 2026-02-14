@@ -16,6 +16,7 @@ export const userExtended = pgTable("user_extended", {
   userId: text("user_id").primaryKey(),
   fullName: text("full_name"),
   email: text("email").unique().notNull(), // Email for authentication
+  emailVerified: boolean("email_verified").default(false), // Email verification status
   passwordHash: text("password_hash"), // Hashed password
   passwordSalt: text("password_salt"), // Salt for password hashing
   businessName: text("business_name"),
