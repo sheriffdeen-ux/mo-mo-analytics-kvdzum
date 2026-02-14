@@ -172,6 +172,9 @@ export const transactions = pgTable(
     riskReasons: jsonb("risk_reasons").$type<string[]>(),
     isBlocked: boolean("is_blocked").default(false),
     isFraudReported: boolean("is_fraud_reported").default(false),
+    aiReplyGenerated: boolean("ai_reply_generated").default(false), // AI SMS reply generated
+    aiReplyContent: text("ai_reply_content"), // Generated SMS reply content
+    aiReplyTimestamp: timestamp("ai_reply_timestamp", { withTimezone: true }), // When reply was generated
   },
   (table) => [
     index("idx_transactions_user_id").on(table.userId),
@@ -389,4 +392,58 @@ export const auditLogRelations = relations(
       references: ["id"],
     } as any),
   })
+);
+
+// SMS Auto-Reply Settings table
+export const smsAutoReplySettings = pgTable(
+  "sms_auto_reply_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    autoReplyEnabled: boolean("auto_reply_enabled").default(true),
+    replyOnlyNoFraud: boolean("reply_only_no_fraud").default(true), // Only reply if no fraud detected
+    includeDailySummary: boolean("include_daily_summary").default(true),
+    includeWeeklySummary: boolean("include_weekly_summary").default(false),
+    includeMonthlySummary: boolean("include_monthly_summary").default(false),
+    customReplyTemplate: text("custom_reply_template"), // User custom template
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("idx_sms_auto_reply_settings_user_id").on(table.userId),
+  ]
+);
+
+// Financial Reports table
+export const financialReports = pgTable(
+  "financial_reports",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id").notNull(),
+    reportType: text("report_type", {
+      enum: ["daily", "weekly", "monthly"],
+    }).notNull(),
+    periodStart: timestamp("period_start", { withTimezone: true }).notNull(),
+    periodEnd: timestamp("period_end", { withTimezone: true }).notNull(),
+    totalSent: decimal("total_sent", { precision: 10, scale: 2 }).default("0"),
+    totalReceived: decimal("total_received", { precision: 10, scale: 2 }).default("0"),
+    transactionCount: integer("transaction_count").default(0),
+    averageTransactionAmount: decimal("average_transaction_amount", { precision: 10, scale: 2 }),
+    highestTransaction: decimal("highest_transaction", { precision: 10, scale: 2 }),
+    lowestTransaction: decimal("lowest_transaction", { precision: 10, scale: 2 }),
+    fraudDetectedCount: integer("fraud_detected_count").default(0),
+    reportData: jsonb("report_data").$type<Record<string, any>>(), // Detailed breakdown
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("idx_financial_reports_user_id").on(table.userId),
+    index("idx_financial_reports_period").on(table.reportType, table.periodStart, table.periodEnd),
+  ]
 );
