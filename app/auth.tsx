@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   View,
@@ -10,6 +11,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   useColorScheme,
+  Image,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
@@ -162,6 +164,14 @@ export default function AuthScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.content}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('@/assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+
           <Text style={[styles.title, { color: textColor }]}>
             MoMo Analytics
           </Text>
@@ -283,6 +293,14 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 24,
     justifyContent: "center",
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  logo: {
+    width: 200,
+    height: 200,
   },
   title: {
     fontSize: 32,
