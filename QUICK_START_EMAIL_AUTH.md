@@ -1,9 +1,9 @@
 
-# 🚀 Quick Start: Email Authentication Testing
+# ✅ Email Authentication Integration Complete
 
 ## 📋 Overview
 
-This guide helps you test the email authentication flow once the backend is implemented.
+The email/password authentication system with email verification has been successfully integrated. This guide helps you test all the authentication flows.
 
 ---
 
@@ -21,17 +21,19 @@ npm start
 
 ### 3. Sign Up
 1. **Email**: `test@example.com`
-2. **Full Name**: `John Doe`
-3. **Phone**: `+233241234567` (optional)
-4. Click **"Send OTP"**
+2. **Password**: `Test1234!`
+3. **Full Name**: `John Doe`
+4. **Phone**: `0241234567` (optional)
+5. Click **"Create Account"**
 
-### 4. Verify OTP
-1. Check your email (or console logs if using console logging)
-2. Enter the **6-digit OTP code**
-3. Click **"Verify OTP"**
+### 4. Verify Email (Optional)
+1. Check your email inbox for verification link
+2. Click the verification link
+3. You'll see "Email Verified!" message
 
 ### 5. Expected Result
 ✅ You should be logged in and see the Transactions screen
+✅ A verification email is sent (but you can use the app immediately)
 
 ---
 
@@ -40,67 +42,93 @@ npm start
 ### Test 1: Sign Up Flow
 **Steps**:
 1. Open app → Auth screen appears
-2. Enter email, full name, phone (optional)
-3. Click "Send OTP"
-4. Check email for OTP code
-5. Enter OTP code
-6. Click "Verify OTP"
+2. Click "Create Account" tab
+3. Enter email, password, full name, phone (optional)
+4. Click "Create Account"
+5. Check email for verification link (optional)
 
 **Expected**:
-- ✅ OTP sent successfully
-- ✅ User logged in
+- ✅ Account created successfully
+- ✅ Success message: "Account created! A verification email has been sent."
+- ✅ User logged in immediately
 - ✅ Redirected to Transactions screen
 - ✅ New account created with 14-day trial
 
 **Console Logs**:
 ```
-[Auth] Sending OTP to: test@example.com
-[API] POST /api/auth/email/send-otp
-[API] Success response: { success: true, expiresIn: 600 }
-[Auth] OTP sent successfully
-
-[Auth] Verifying OTP for: test@example.com
-[API] POST /api/auth/email/verify-otp
+[Auth] Signup attempt
+[Auth] Creating account for: test@example.com
+[API] POST /api/auth/signup
 [API] Success response: { success: true, user: {...}, accessToken: "..." }
 [Auth] Access token stored successfully
+✅ Account created successfully, redirecting to home...
 ```
 
 ---
 
-### Test 2: Resend OTP
+### Test 2: Email Verification
 **Steps**:
-1. On OTP screen, wait for countdown to finish (60 seconds)
-2. Click "Resend OTP"
-3. Check email for new OTP code
+1. After signup, check your email inbox
+2. Click the verification link in the email
+3. You'll be redirected to the app
 
 **Expected**:
-- ✅ New OTP sent
-- ✅ Countdown resets to 60 seconds
-- ✅ Success message appears
+- ✅ Shows "Verifying your email address..." loading state
+- ✅ Shows "Email Verified!" success message with checkmark
+- ✅ Redirects to login screen after 2 seconds
+
+**Console Logs**:
+```
+[Verify Email] Verifying token: abc123...
+[API] GET /api/auth/verify-email-link?token=abc123...
+[API] Success response: { success: true, message: "Email verified successfully" }
+✅ Email verified successfully
+```
 
 ---
 
-### Test 3: Invalid OTP
+### Test 3: Login Flow
 **Steps**:
-1. Enter wrong OTP code (e.g., "000000")
-2. Click "Verify OTP"
+1. Navigate to auth screen
+2. Enter email and password
+3. Click "Sign In"
 
 **Expected**:
-- ❌ Error message: "Invalid OTP code"
-- ✅ OTP input cleared
-- ✅ Can try again (max 3 attempts)
+- ✅ User logged in successfully
+- ✅ Redirected to Transactions screen
+- ✅ Access token stored
+
+**Console Logs**:
+```
+[Auth] Login attempt
+[Auth] Logging in: test@example.com
+[API] POST /api/auth/login
+[API] Success response: { success: true, user: {...}, accessToken: "..." }
+[Auth] Access token stored successfully
+✅ Login successful, redirecting to home...
+```
 
 ---
 
-### Test 4: Expired OTP
+### Test 4: Resend Verification Email
 **Steps**:
-1. Request OTP
-2. Wait 11 minutes (OTP expires after 10 minutes)
-3. Try to verify OTP
+1. Login with unverified account
+2. Navigate to Profile tab
+3. See "Email Not Verified" badge
+4. Click "Resend Verification Email"
 
 **Expected**:
-- ❌ Error message: "OTP has expired"
-- ✅ Can request new OTP
+- ✅ Shows loading spinner
+- ✅ Success message: "Verification email sent! Please check your inbox."
+- ✅ New verification email sent
+
+**Console Logs**:
+```
+[Profile] Resending verification email to: test@example.com
+[API] POST /api/auth/resend-verification-link
+[API] Success response: { success: true, message: "Verification email sent" }
+✅ Verification email sent successfully
+```
 
 ---
 
@@ -178,54 +206,64 @@ npm start
 
 ---
 
-### Test 9: Rate Limiting
+### Test 9: Verified User Profile
 **Steps**:
-1. Request OTP
-2. Immediately request OTP again
-3. Repeat 3 times within 1 hour
+1. Login with verified account
+2. Navigate to Profile tab
 
 **Expected**:
-- ✅ First 3 requests succeed
-- ❌ 4th request fails with: "Too many OTP requests. Please try again in 1 hour."
+- ✅ Shows "Email Verified" badge with green checkmark
+- ✅ No resend button visible
+- ✅ User can access all features
 
 ---
 
-### Test 10: Email Validation
+### Test 10: Password Validation
+**Steps**:
+1. Try to signup with weak password (e.g., "123")
+2. Click "Create Account"
+
+**Expected**:
+- ❌ Error message: "Password must be at least 8 characters long"
+- ✅ Account not created
+
 **Steps**:
 1. Enter invalid email (e.g., "notanemail")
-2. Click "Send OTP"
+2. Click "Create Account"
 
 **Expected**:
 - ❌ Error message: "Please enter a valid email address"
-- ✅ OTP not sent
+- ✅ Account not created
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Issue: "Failed to send OTP"
+### Issue: "Failed to create account"
 **Possible Causes**:
-- Backend email service not configured
-- Invalid email address
+- Email already exists
+- Invalid email format
+- Password too weak
 - Network error
 
 **Solution**:
-- Check backend logs
-- Verify email service is configured (SendGrid, AWS SES, or console logging)
+- Try a different email
+- Check email format is valid
+- Use stronger password (8+ characters)
 - Check network connection
 
 ---
 
-### Issue: "Invalid OTP code"
+### Issue: "Invalid email or password"
 **Possible Causes**:
-- Wrong OTP entered
-- OTP expired (10 minutes)
-- Max attempts exceeded (3)
+- Wrong email or password
+- Account doesn't exist
+- Network error
 
 **Solution**:
-- Check email for correct OTP
-- Request new OTP if expired
-- Wait 1 hour if rate limited
+- Check email and password are correct
+- Try signing up if account doesn't exist
+- Check network connection
 
 ---
 
@@ -257,30 +295,14 @@ npm start
 
 ## 📊 Expected API Responses
 
-### Send OTP
+### Sign Up
 ```json
-POST /api/auth/email/send-otp
+POST /api/auth/signup
 {
   "email": "test@example.com",
+  "password": "Test1234!",
   "fullName": "John Doe",
-  "phoneNumber": "+233241234567"
-}
-
-Response:
-{
-  "success": true,
-  "expiresIn": 600
-}
-```
-
-### Verify OTP
-```json
-POST /api/auth/email/verify-otp
-{
-  "email": "test@example.com",
-  "otpCode": "123456",
-  "fullName": "John Doe",
-  "phoneNumber": "+233241234567",
+  "phoneNumber": "0241234567",
   "deviceId": "device_123"
 }
 
@@ -292,12 +314,67 @@ Response:
     "fullName": "John Doe",
     "email": "test@example.com",
     "phoneNumber": "+233241234567",
+    "emailVerified": false,
     "subscriptionStatus": "trial",
     "trialEndDate": "2024-03-15T00:00:00.000Z"
   },
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expiresIn": 2592000,
-  "tokenType": "Bearer"
+  "message": "Account created successfully. Verification email sent."
+}
+```
+
+### Login
+```json
+POST /api/auth/login
+{
+  "email": "test@example.com",
+  "password": "Test1234!",
+  "deviceId": "device_123"
+}
+
+Response:
+{
+  "success": true,
+  "user": {
+    "id": "user_xxx",
+    "fullName": "John Doe",
+    "email": "test@example.com",
+    "phoneNumber": "+233241234567",
+    "emailVerified": true,
+    "subscriptionStatus": "trial",
+    "trialEndDate": "2024-03-15T00:00:00.000Z"
+  },
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}
+```
+
+### Verify Email
+```json
+GET /api/auth/verify-email-link?token=abc123...
+
+Response:
+{
+  "success": true,
+  "message": "Email verified successfully",
+  "user": {
+    "id": "user_xxx",
+    "email": "test@example.com",
+    "emailVerified": true
+  }
+}
+```
+
+### Resend Verification
+```json
+POST /api/auth/resend-verification-link
+{
+  "email": "test@example.com"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Verification email sent"
 }
 ```
 
@@ -324,17 +401,18 @@ Response:
 
 ## ✅ Testing Checklist
 
-- [ ] Sign up with email + OTP
-- [ ] Verify OTP successfully
-- [ ] Resend OTP works
-- [ ] Invalid OTP shows error
-- [ ] Expired OTP shows error
+- [ ] Sign up with email + password
+- [ ] Verification email sent after signup
+- [ ] Email verification link works
+- [ ] Login with email + password
 - [ ] Session persists after app restart
 - [ ] Sign out works
 - [ ] Sign in again works
+- [ ] Resend verification email works
+- [ ] Profile shows verification status
 - [ ] Protected endpoints work (transactions, settings, etc.)
-- [ ] Rate limiting works (3 per hour)
 - [ ] Email validation works
+- [ ] Password validation works (8+ characters)
 - [ ] Dark mode works
 - [ ] Pull-to-refresh works
 - [ ] Error messages are user-friendly
@@ -364,12 +442,15 @@ Response:
 ## 🎯 Success Criteria
 
 After testing, you should be able to:
-- ✅ Sign up with email + OTP
-- ✅ Log in with email + OTP
+- ✅ Sign up with email + password
+- ✅ Receive verification email
+- ✅ Verify email with link
+- ✅ Log in with email + password (even if not verified)
 - ✅ Stay logged in after app restart
 - ✅ Access all protected screens
 - ✅ Sign out and sign in again
-- ✅ See user profile data
+- ✅ See user profile data with verification status
+- ✅ Resend verification email
 - ✅ View transactions (if any)
 - ✅ Update settings
 - ✅ View subscription status

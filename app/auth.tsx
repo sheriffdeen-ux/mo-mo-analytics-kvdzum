@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import * as Device from "expo-device";
 
-type AuthMode = "email" | "otp";
+type AuthMode = "login" | "signup";
 
 export default function AuthScreen() {
   const router = useRouter();
@@ -26,18 +26,16 @@ export default function AuthScreen() {
   const isDark = colorScheme === "dark";
   const { loading: authLoading } = useAuth();
 
-  const [mode, setMode] = useState<AuthMode>("email");
+  const [mode, setMode] = useState<AuthMode>("login");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [countdown, setCountdown] = useState(0);
   const [deviceFingerprint, setDeviceFingerprint] = useState("");
-  const [devModeOtp, setDevModeOtp] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     generateDeviceFingerprint();
@@ -81,7 +79,9 @@ export default function AuthScreen() {
     return text;
   };
 
-  const handleSendOTP = async () => {
+  const handleSignup = async () => {
+    console.log("[Auth] Signup attempt");
+    
     if (!email) {
       setError("Please enter your email address");
       return;
@@ -89,6 +89,16 @@ export default function AuthScreen() {
 
     if (!validateEmail(email)) {
       setError("Please enter a valid email address");
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter a password");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long");
       return;
     }
 
@@ -100,88 +110,14 @@ export default function AuthScreen() {
     setLoading(true);
     setError("");
     setSuccessMessage("");
-    console.log("[Auth] Sending OTP to email:", email);
-
-    try {
-      const { apiPost } = await import('@/utils/api');
-      
-      const requestBody: any = {
-        email: email.toLowerCase().trim(),
-        fullName: fullName.trim(),
-      };
-
-      if (phoneNumber) {
-        const formattedPhone = formatPhoneNumber(phoneNumber);
-        requestBody.phoneNumber = formattedPhone;
-      }
-
-      const response = await apiPost('/api/auth/email/send-otp', requestBody);
-      
-      if (response.success === false) {
-        throw new Error(response.error || "Failed to send OTP");
-      }
-      
-      // Check if backend returned OTP code (development mode only)
-      if (response.otpCode) {
-        setDevModeOtp(response.otpCode);
-        console.log("🔓 [DEV MODE] OTP code received from backend:", response.otpCode);
-      } else {
-        setDevModeOtp(null);
-      }
-      
-      setOtpSent(true);
-      setMode("otp");
-      setSuccessMessage(`OTP sent to ${email}. Please check your email inbox.`);
-      setCountdown(60);
-      
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      console.log("✅ OTP sent successfully to", email);
-    } catch (err: any) {
-      console.error("❌ Failed to send OTP:", err);
-      let errorMessage = "Failed to send OTP. Please check your email and try again.";
-      
-      if (err?.message) {
-        errorMessage = err.message;
-      } else if (typeof err === 'string') {
-        errorMessage = err;
-      }
-      
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (!otpCode || otpCode.length !== 6) {
-      setError("Please enter the complete 6-digit OTP code");
-      return;
-    }
-
-    if (!/^\d{6}$/.test(otpCode)) {
-      setError("OTP code must contain only numbers");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-    console.log("[Auth] Verifying OTP for:", email);
+    console.log("[Auth] Creating account for:", email);
 
     try {
       const { apiPost, setBearerToken } = await import('@/utils/api');
       
       const requestBody: any = {
         email: email.toLowerCase().trim(),
-        otpCode,
+        password: password,
         fullName: fullName.trim(),
         deviceId: deviceFingerprint,
       };
@@ -191,22 +127,29 @@ export default function AuthScreen() {
         requestBody.phoneNumber = formattedPhone;
       }
 
-      const response = await apiPost('/api/auth/email/verify-otp', requestBody);
+      const response = await apiPost('/api/auth/signup', requestBody);
       
       if (response.success === false) {
-        throw new Error(response.error || "Invalid OTP code");
+        throw new Error(response.error || response.message || "Failed to create account");
       }
       
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
         console.log("[Auth] Access token stored successfully");
+      } else if (response.token) {
+        await setBearerToken(response.token);
+        console.log("[Auth] Access token stored successfully");
       }
       
-      console.log("✅ OTP verified successfully, redirecting to home...");
-      router.replace("/(tabs)/(home)/");
+      console.log("✅ Account created successfully, redirecting to home...");
+      setSuccessMessage("Account created! A verification email has been sent.");
+      
+      setTimeout(() => {
+        router.replace("/(tabs)/(home)/");
+      }, 1000);
     } catch (err: any) {
-      console.error("❌ OTP verification failed:", err);
-      let errorMessage = "Invalid OTP code. Please check and try again.";
+      console.error("❌ Failed to create account:", err);
+      let errorMessage = "Failed to create account. Please try again.";
       
       if (err?.message) {
         errorMessage = err.message;
@@ -215,56 +158,62 @@ export default function AuthScreen() {
       }
       
       setError(errorMessage);
-      setOtpCode("");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
-    if (countdown > 0) return;
+  const handleLogin = async () => {
+    console.log("[Auth] Login attempt");
     
+    if (!email) {
+      setError("Please enter your email address");
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    if (!password) {
+      setError("Please enter your password");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setSuccessMessage("");
-    setOtpCode("");
-    console.log("[Auth] Resending OTP to:", email);
+    console.log("[Auth] Logging in:", email);
 
     try {
-      const { apiPost } = await import('@/utils/api');
-      const response = await apiPost('/api/auth/email/resend-otp', {
+      const { apiPost, setBearerToken } = await import('@/utils/api');
+      
+      const requestBody = {
         email: email.toLowerCase().trim(),
-      });
+        password: password,
+        deviceId: deviceFingerprint,
+      };
+
+      const response = await apiPost('/api/auth/login', requestBody);
       
       if (response.success === false) {
-        throw new Error(response.error || "Failed to resend OTP");
+        throw new Error(response.error || response.message || "Invalid email or password");
       }
       
-      // Check if backend returned OTP code (development mode only)
-      if (response.otpCode) {
-        setDevModeOtp(response.otpCode);
-        console.log("🔓 [DEV MODE] OTP code received from backend:", response.otpCode);
-      } else {
-        setDevModeOtp(null);
+      if (response.accessToken) {
+        await setBearerToken(response.accessToken);
+        console.log("[Auth] Access token stored successfully");
+      } else if (response.token) {
+        await setBearerToken(response.token);
+        console.log("[Auth] Access token stored successfully");
       }
       
-      setSuccessMessage("New OTP sent! Please check your email inbox.");
-      setCountdown(60);
-      
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      console.log("✅ OTP resent successfully to", email);
+      console.log("✅ Login successful, redirecting to home...");
+      router.replace("/(tabs)/(home)/");
     } catch (err: any) {
-      console.error("❌ Failed to resend OTP:", err);
-      let errorMessage = "Failed to resend OTP. Please try again.";
+      console.error("❌ Login failed:", err);
+      let errorMessage = "Invalid email or password. Please try again.";
       
       if (err?.message) {
         errorMessage = err.message;
@@ -276,6 +225,13 @@ export default function AuthScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+    setMode(mode === "login" ? "signup" : "login");
+    setError("");
+    setSuccessMessage("");
+    setPassword("");
   };
 
   const backgroundColor = isDark ? colors.background : "#fff";
@@ -302,8 +258,7 @@ export default function AuthScreen() {
             MoMo Analytics
           </Text>
           <Text style={[styles.subtitle, { color: isDark ? colors.textSecondary : "#666" }]}>
-            {mode === "email" && "Enter your details to get started"}
-            {mode === "otp" && "Enter the OTP code sent to your email"}
+            {mode === "login" ? "Sign in to your account" : "Create your account"}
           </Text>
 
           {error ? (
@@ -318,30 +273,40 @@ export default function AuthScreen() {
             </View>
           ) : null}
 
-          {devModeOtp ? (
-            <View style={styles.devModeContainer}>
-              <Text style={styles.devModeTitle}>🔓 Development Mode</Text>
-              <Text style={styles.devModeText}>Your OTP code is:</Text>
-              <Text style={styles.devModeOtp}>{devModeOtp}</Text>
-              <Text style={styles.devModeNote}>
-                (This is only shown in preview mode. In production, you'll receive the OTP via email only.)
+          <TextInput
+            style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
+            placeholder="Email Address"
+            placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={[styles.passwordInput, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
+              placeholder="Password"
+              placeholderTextColor={isDark ? colors.textSecondary : "#999"}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Text style={[styles.eyeText, { color: isDark ? colors.textSecondary : "#666" }]}>
+                {showPassword ? "👁️" : "👁️‍🗨️"}
               </Text>
-            </View>
-          ) : null}
+            </TouchableOpacity>
+          </View>
 
-          {mode === "email" ? (
+          {mode === "signup" && (
             <React.Fragment>
-              <TextInput
-                style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
-                placeholder="Email Address"
-                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
               <TextInput
                 style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
                 placeholder="Full Name"
@@ -361,129 +326,36 @@ export default function AuthScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-
-              <TouchableOpacity
-                style={[styles.primaryButton, loading && styles.buttonDisabled]}
-                onPress={handleSendOTP}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Send OTP</Text>
-                )}
-              </TouchableOpacity>
             </React.Fragment>
-          ) : mode === "otp" ? (
-            <React.Fragment>
-              <View style={styles.emailDisplay}>
-                <Text style={[styles.emailDisplayText, { color: textColor }]}>
-                  {email}
-                </Text>
-                <TouchableOpacity onPress={() => setMode("email")}>
-                  <Text style={[styles.changeEmailText, { color: colors.primary }]}>Change</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TextInput
-                style={[styles.otpInput, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
-                placeholder="Enter 6-digit OTP"
-                placeholderTextColor={isDark ? colors.textSecondary : "#999"}
-                value={otpCode}
-                onChangeText={setOtpCode}
-                keyboardType="number-pad"
-                maxLength={6}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-
-              <TouchableOpacity
-                style={[styles.primaryButton, loading && styles.buttonDisabled]}
-                onPress={handleVerifyOTP}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Verify OTP</Text>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.resendButton}
-                onPress={handleResendOTP}
-                disabled={countdown > 0 || loading}
-              >
-                <Text style={[styles.resendText, { color: countdown > 0 ? (isDark ? colors.textSecondary : "#999") : colors.primary }]}>
-                  {countdown > 0 ? `Resend OTP in ${countdown}s` : "Resend OTP"}
-                </Text>
-              </TouchableOpacity>
-            </React.Fragment>
-          ) : null}
-
-          {mode === "email" && (
-            <TouchableOpacity
-              style={styles.devBypassButton}
-              onPress={async () => {
-                if (!email) {
-                  setError("Please enter your email address first");
-                  return;
-                }
-                
-                if (!validateEmail(email)) {
-                  setError("Please enter a valid email address");
-                  return;
-                }
-                
-                setLoading(true);
-                setError("");
-                setSuccessMessage("");
-                console.log("[DEV] Marking account as verified:", email);
-                
-                try {
-                  const { apiPost, setBearerToken } = await import('@/utils/api');
-                  const response = await apiPost('/api/auth/email/mark-verified', {
-                    email: email.toLowerCase().trim(),
-                  });
-                  
-                  if (response.success === false) {
-                    throw new Error(response.error || "Failed to mark as verified");
-                  }
-                  
-                  if (response.accessToken) {
-                    await setBearerToken(response.accessToken);
-                    console.log("[DEV] ✅ Account marked as verified, redirecting to home...");
-                    setSuccessMessage("Account verified! Redirecting...");
-                    
-                    // Small delay to show success message
-                    setTimeout(() => {
-                      router.replace("/(tabs)/(home)/");
-                    }, 500);
-                  } else {
-                    setSuccessMessage("Account verified! You can now log in normally.");
-                  }
-                } catch (err: any) {
-                  console.error("[DEV] ❌ Failed to mark as verified:", err);
-                  let errorMessage = "Failed to bypass verification. ";
-                  
-                  if (err?.message?.includes("User not found")) {
-                    errorMessage += "Please sign up first by sending an OTP.";
-                  } else if (err?.message) {
-                    errorMessage = err.message;
-                  }
-                  
-                  setError(errorMessage);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              disabled={loading}
-            >
-              <Text style={styles.devBypassText}>
-                🔓 Dev Mode: Skip Verification
-              </Text>
-            </TouchableOpacity>
           )}
+
+          <TouchableOpacity
+            style={[styles.primaryButton, loading && styles.buttonDisabled]}
+            onPress={mode === "login" ? handleLogin : handleSignup}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>
+                {mode === "login" ? "Sign In" : "Create Account"}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.switchModeButton}
+            onPress={toggleMode}
+            disabled={loading}
+          >
+            <Text style={[styles.switchModeText, { color: colors.primary }]}>
+              {mode === "login" 
+                ? "Don't have an account? Sign up" 
+                : "Already have an account? Sign in"}
+            </Text>
+          </TouchableOpacity>
+
+
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: isDark ? colors.textSecondary : "#666" }]}>
@@ -555,42 +427,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
   },
-  devModeContainer: {
-    backgroundColor: "#fff3cd",
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
-    borderWidth: 2,
-    borderColor: "#ffc107",
-  },
-  devModeTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#856404",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  devModeText: {
-    fontSize: 14,
-    color: "#856404",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  devModeOtp: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#856404",
-    textAlign: "center",
-    letterSpacing: 8,
-    marginVertical: 8,
-  },
-  devModeNote: {
-    fontSize: 12,
-    color: "#856404",
-    textAlign: "center",
-    marginTop: 8,
-    fontStyle: "italic",
-  },
+
   input: {
     height: 50,
     borderWidth: 1,
@@ -599,29 +436,32 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
   },
-  otpInput: {
-    height: 60,
-    borderWidth: 2,
+  passwordContainer: {
+    position: "relative",
+    marginBottom: 16,
+  },
+  passwordInput: {
+    height: 50,
+    borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 16,
-    marginBottom: 16,
-    fontSize: 24,
-    textAlign: "center",
-    letterSpacing: 8,
-    fontWeight: "600",
-  },
-  emailDisplay: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-    paddingHorizontal: 8,
-  },
-  emailDisplayText: {
+    paddingRight: 50,
     fontSize: 16,
-    fontWeight: "600",
   },
-  changeEmailText: {
+  eyeButton: {
+    position: "absolute",
+    right: 16,
+    top: 13,
+    padding: 4,
+  },
+  eyeText: {
+    fontSize: 20,
+  },
+  switchModeButton: {
+    marginTop: 16,
+    alignItems: "center",
+  },
+  switchModeText: {
     fontSize: 14,
     fontWeight: "600",
   },
@@ -641,28 +481,7 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  resendButton: {
-    marginTop: 16,
-    alignItems: "center",
-  },
-  resendText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  devBypassButton: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: "#fff3cd",
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: "#ffc107",
-    alignItems: "center",
-  },
-  devBypassText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#856404",
-  },
+
   footer: {
     marginTop: 32,
     paddingTop: 24,

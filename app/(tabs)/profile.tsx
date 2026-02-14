@@ -37,6 +37,8 @@ export default function ProfileScreen() {
   const [subscriptionStatus, setSubscriptionStatus] = useState<SubscriptionStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
 
   useEffect(() => {
     loadSettings();
@@ -101,6 +103,38 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!user?.email) {
+      setVerificationMessage("No email address found");
+      return;
+    }
+
+    setResendingVerification(true);
+    setVerificationMessage("");
+    console.log("[Profile] Resending verification email to:", user.email);
+
+    try {
+      const { apiPost } = await import('@/utils/api');
+      
+      const response = await apiPost('/api/auth/resend-verification-link', {
+        email: user.email,
+      });
+      
+      if (response.success === false) {
+        throw new Error(response.error || response.message || "Failed to resend verification email");
+      }
+      
+      setVerificationMessage("Verification email sent! Please check your inbox.");
+      console.log("✅ Verification email sent successfully");
+    } catch (err: any) {
+      console.error("❌ Failed to resend verification email:", err);
+      const errorMessage = err?.message || "Failed to send verification email. Please try again.";
+      setVerificationMessage(errorMessage);
+    } finally {
+      setResendingVerification(false);
+    }
+  };
+
 
 
   const getSubscriptionBadgeColor = (status: string) => {
@@ -156,6 +190,57 @@ export default function ProfileScreen() {
             <Text style={[styles.trialText, { color: textSecondary }]}>
               {formatDaysRemaining()}
             </Text>
+          )}
+
+          {/* Email Verification Status */}
+          {user?.email && (
+            <View style={styles.verificationContainer}>
+              {(user as any).emailVerified ? (
+                <View style={styles.verifiedBadge}>
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check-circle"
+                    size={16}
+                    color={colors.success}
+                  />
+                  <Text style={[styles.verifiedText, { color: colors.success }]}>
+                    Email Verified
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.unverifiedContainer}>
+                  <View style={styles.unverifiedBadge}>
+                    <IconSymbol
+                      ios_icon_name="exclamationmark.circle.fill"
+                      android_material_icon_name="error"
+                      size={16}
+                      color={colors.warning}
+                    />
+                    <Text style={[styles.unverifiedText, { color: colors.warning }]}>
+                      Email Not Verified
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.resendButton}
+                    onPress={handleResendVerification}
+                    disabled={resendingVerification}
+                  >
+                    {resendingVerification ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Text style={[styles.resendButtonText, { color: colors.primary }]}>
+                        Resend Verification Email
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  {verificationMessage ? (
+                    <Text style={[styles.verificationMessage, { color: verificationMessage.includes("sent") ? colors.success : colors.error }]}>
+                      {verificationMessage}
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+            </View>
           )}
         </View>
 
@@ -314,6 +399,47 @@ const styles = StyleSheet.create({
   trialText: {
     fontSize: 14,
     marginTop: 8,
+  },
+  verificationContainer: {
+    marginTop: 16,
+    width: "100%",
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  verifiedText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  unverifiedContainer: {
+    alignItems: "center",
+  },
+  unverifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 12,
+  },
+  unverifiedText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  resendButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  resendButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  verificationMessage: {
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: "center",
   },
   card: {
     borderRadius: 12,

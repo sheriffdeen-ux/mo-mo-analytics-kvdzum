@@ -100,6 +100,7 @@ function RootLayoutContent() {
             <Stack.Screen name="auth" options={{ headerShown: false }} />
             <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
             <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+            <Stack.Screen name="verify-email" options={{ headerShown: false }} />
             {/* Main app with tabs */}
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           </Stack>

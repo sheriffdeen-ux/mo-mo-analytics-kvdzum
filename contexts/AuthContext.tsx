@@ -12,6 +12,7 @@ interface User {
   fullName?: string;
   phoneNumber?: string;
   image?: string;
+  emailVerified?: boolean;
   subscriptionStatus?: string;
   trialEndDate?: string;
   currentPlanId?: string;
@@ -19,6 +20,8 @@ interface User {
   smsAutoDetectionEnabled?: boolean;
   deviceFingerprint?: string;
   requiresPinOnNewDevice?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface AuthContextType {
