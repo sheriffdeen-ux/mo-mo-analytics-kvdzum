@@ -86,9 +86,10 @@ export function registerChatbotAnalyzeRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
-  // POST /api/chatbot/analyze-sms
+  // POST /api/chatbot/analyze-sms-legacy
+  // Legacy endpoint - use /api/chatbot/analyze-sms for new Telecel-optimized version
   fastify.post(
-    "/api/chatbot/analyze-sms",
+    "/api/chatbot/analyze-sms-legacy",
     async (request: FastifyRequest, reply: FastifyReply) => {
       const token = request.headers.authorization?.replace("Bearer ", "");
 

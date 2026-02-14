@@ -151,10 +151,10 @@ export const transactions = pgTable(
     userId: text("user_id").notNull(),
     rawSms: text("raw_sms").notNull(),
     provider: text("provider", {
-      enum: ["MTN", "Vodafone", "AirtelTigo"],
+      enum: ["MTN", "Vodafone", "AirtelTigo", "Telecel Cash", "MTN MOBILE MONEY"],
     }).notNull(),
     transactionType: text("transaction_type", {
-      enum: ["sent", "received", "withdrawal", "deposit", "airtime", "bill_payment"],
+      enum: ["sent", "received", "withdrawal", "deposit", "airtime", "bill_payment", "cash_out"],
     }).notNull(),
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
     recipient: text("recipient"),
