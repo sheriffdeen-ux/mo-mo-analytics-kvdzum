@@ -1,0 +1,1 @@
+ALTER TABLE "user_extended" ADD COLUMN "email_verified" boolean DEFAULT false;

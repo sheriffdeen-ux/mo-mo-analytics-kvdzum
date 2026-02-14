@@ -13,6 +13,7 @@ import {
   getVerificationStatusMessage,
 } from "../utils/email-service.js";
 import { logAuthEvent } from "../utils/audit-log.js";
+import { isDevTestingEnabled } from "../utils/dev-testing.js";
 
 // In-memory rate limiting for email OTP requests (3 per hour per email)
 const emailOTPRateLimiter = new Map<
@@ -211,9 +212,15 @@ export function registerEmailVerificationRoutes(
           };
         }
 
-        // Mark as verified
+        // Mark as verified in memory
         otpRecord.verified = true;
         emailOTPStore.set(body.email, otpRecord);
+
+        // Mark as verified in database (for user record)
+        await app.db
+          .update(schema.userExtended)
+          .set({ emailVerified: true })
+          .where(eq(schema.userExtended.email, body.email));
 
         app.logger.info(
           { email: body.email },
@@ -350,6 +357,84 @@ export function registerEmailVerificationRoutes(
         app.logger.error(
           { err: error, email },
           "Failed to resend verification email"
+        );
+        throw error;
+      }
+    }
+  );
+
+  // POST /api/auth/email/mark-verified - Development endpoint to mark email as verified
+  fastify.post(
+    "/api/auth/email/mark-verified",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      // Development/testing endpoint only
+      if (!isDevTestingEnabled()) {
+        return {
+          success: false,
+          error: "This endpoint is only available in development mode",
+        };
+      }
+
+      const body = request.body as { email: string };
+
+      if (!body.email) {
+        return {
+          success: false,
+          error: "Email is required",
+        };
+      }
+
+      app.logger.info(
+        { email: body.email },
+        "Development: Marking email as verified"
+      );
+
+      try {
+        // Find user
+        const [user] = await app.db
+          .select()
+          .from(schema.userExtended)
+          .where(eq(schema.userExtended.email, body.email));
+
+        if (!user) {
+          return {
+            success: false,
+            error: "User not found",
+          };
+        }
+
+        // Mark email as verified
+        await app.db
+          .update(schema.userExtended)
+          .set({ emailVerified: true })
+          .where(eq(schema.userExtended.email, body.email));
+
+        // Also mark in-memory OTP as verified
+        const otpRecord = emailOTPStore.get(body.email);
+        if (otpRecord) {
+          otpRecord.verified = true;
+          emailOTPStore.set(body.email, otpRecord);
+        }
+
+        app.logger.info(
+          { email: body.email, userId: user.userId },
+          "Email marked as verified (development mode)"
+        );
+
+        return {
+          success: true,
+          message: "Email marked as verified",
+          user: {
+            id: user.userId,
+            email: user.email,
+            fullName: user.fullName,
+            emailVerified: true,
+          },
+        };
+      } catch (error) {
+        app.logger.error(
+          { err: error, email: body.email },
+          "Failed to mark email as verified"
         );
         throw error;
       }
