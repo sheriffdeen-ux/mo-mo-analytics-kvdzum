@@ -1,8 +1,7 @@
-
 {
   "expo": {
     "name": "MoMo Analytics",
-    "slug": "MoMo-Analytics",
+    "slug": "MoMo Analytics",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/dfc609a7-2eaa-4fb8-a7ed-b8f157351210.jpeg",
@@ -49,7 +48,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "momoanalytics",
+    "scheme": "MoMo Analytics",
     "experiments": {
       "typedRoutes": true
     },

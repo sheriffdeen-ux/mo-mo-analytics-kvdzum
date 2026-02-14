@@ -82,9 +82,26 @@ export default function TransactionsScreen() {
       }>('/api/transactions?page=1&limit=20');
       
       console.log('Transactions loaded:', response);
-      setTransactions(response.transactions);
-    } catch (error) {
+      
+      // Handle both array and object responses
+      if (Array.isArray(response)) {
+        setTransactions(response);
+      } else if (response.transactions && Array.isArray(response.transactions)) {
+        setTransactions(response.transactions);
+      } else {
+        console.warn('Unexpected response format:', response);
+        setTransactions([]);
+      }
+    } catch (error: any) {
       console.error('Failed to load transactions:', error);
+      
+      // Check if it's a network error or auth error
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+        console.log('Authentication error - user may need to re-login');
+      } else if (error?.message?.includes('Network')) {
+        console.log('Network error - showing empty state');
+      }
+      
       // Show empty state on error
       setTransactions([]);
     } finally {
@@ -108,13 +125,26 @@ export default function TransactionsScreen() {
       
       console.log('Summary loaded:', response);
       setSummary({
-        totalSent: response.totalSent,
-        totalReceived: response.totalReceived,
-        fraudDetected: response.fraudDetected,
+        totalSent: response.totalSent || 0,
+        totalReceived: response.totalReceived || 0,
+        fraudDetected: response.fraudDetected || 0,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load summary:', error);
+      
+      // Check if it's a network error or auth error
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+        console.log('Authentication error - user may need to re-login');
+      } else if (error?.message?.includes('Network')) {
+        console.log('Network error - keeping default summary values');
+      }
+      
       // Keep default values on error
+      setSummary({
+        totalSent: 0,
+        totalReceived: 0,
+        fraudDetected: 0,
+      });
     }
   };
 

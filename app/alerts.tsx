@@ -74,11 +74,30 @@ export default function AlertsScreen() {
       }>(`/api/alerts/in-app?${queryParams}`);
 
       console.log('[Alerts] Loaded:', response);
-      setAlerts(response.alerts);
-      setUnreadCount(response.unreadCount);
-    } catch (error) {
+      
+      // Handle both array and object responses
+      if (Array.isArray(response)) {
+        setAlerts(response);
+        setUnreadCount(0);
+      } else if (response.alerts && Array.isArray(response.alerts)) {
+        setAlerts(response.alerts);
+        setUnreadCount(response.unreadCount || 0);
+      } else {
+        console.warn('[Alerts] Unexpected response format:', response);
+        setAlerts([]);
+        setUnreadCount(0);
+      }
+    } catch (error: any) {
       console.error('[Alerts] Failed to load alerts:', error);
+      
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+        console.log('[Alerts] Authentication error - user may need to re-login');
+      } else if (error?.message?.includes('Network')) {
+        console.log('[Alerts] Network error - showing empty state');
+      }
+      
       setAlerts([]);
+      setUnreadCount(0);
     } finally {
       setLoading(false);
     }

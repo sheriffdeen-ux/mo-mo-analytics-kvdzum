@@ -43,16 +43,20 @@ function RootLayoutContent() {
   }, [networkState.isConnected, networkState.isInternetReachable]);
 
   // Auth guard: redirect to auth screen if not logged in
+  // Only redirect if we're not already on the auth screen
   React.useEffect(() => {
     if (!loading) {
-      if (!user) {
+      const currentPath = router.pathname || '';
+      const isAuthScreen = currentPath.includes('/auth');
+      
+      if (!user && !isAuthScreen) {
         console.log("[Auth Guard] No user found, redirecting to auth");
         router.replace("/auth");
-      } else {
+      } else if (user) {
         console.log("[Auth Guard] User authenticated:", user.phoneNumber || user.email);
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   const CustomDefaultTheme: Theme = {
     ...DefaultTheme,

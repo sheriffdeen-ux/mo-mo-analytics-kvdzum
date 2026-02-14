@@ -110,7 +110,21 @@ export default function ChatbotScreen() {
     } catch (error: any) {
       console.error('[Chatbot] Analysis failed:', error);
       
-      const errorText = error?.message || 'Unknown error';
+      let errorText = 'Unknown error';
+      
+      if (error?.message) {
+        errorText = error.message;
+      } else if (typeof error === 'string') {
+        errorText = error;
+      }
+      
+      // Check for specific error types
+      if (errorText.includes('401') || errorText.includes('Unauthorized')) {
+        errorText = 'Authentication error. Please try logging in again.';
+      } else if (errorText.includes('Network')) {
+        errorText = 'Network error. Please check your internet connection and try again.';
+      }
+      
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'bot',

@@ -57,8 +57,20 @@ export default function ProfileScreen() {
       if (data) {
         setSettings(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Profile] Failed to load settings:", error);
+      
+      // Set default settings on error
+      setSettings({
+        dailyLimit: 2000,
+        blockedMerchants: [],
+        trustedMerchants: [],
+        smsReadPreference: "momo_only",
+      });
+      
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+        console.log('[Profile] Authentication error - user may need to re-login');
+      }
     }
   };
 
@@ -69,8 +81,24 @@ export default function ProfileScreen() {
       if (data) {
         setSubscriptionStatus(data);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Profile] Failed to load subscription status:", error);
+      
+      // Set default subscription status for testing mode
+      setSubscriptionStatus({
+        subscriptionStatus: 'trial',
+        currentPlan: 'Free Trial',
+        daysRemaining: 14,
+        features: [
+          'Basic fraud detection',
+          'SMS analysis',
+          'Transaction history',
+        ],
+      });
+      
+      if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
+        console.log('[Profile] Authentication error - user may need to re-login');
+      }
     }
   };
 

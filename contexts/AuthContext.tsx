@@ -126,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             updatedAt: new Date().toISOString(),
           };
           setUser(mockUser);
+          setLoading(false);
           console.log("[Auth] Mock user created for testing:", mockUser);
           return;
         }
@@ -142,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             } catch (deviceError) {
               console.warn("[Auth] Device registration failed (non-critical):", deviceError);
             }
+            setLoading(false);
             return;
           }
         } catch (error: any) {
@@ -149,9 +151,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (error?.message?.includes('401') || error?.message?.includes('Unauthorized')) {
             console.log("[Auth] Token is invalid (401), clearing auth tokens");
             await clearAuthTokens();
+            setUser(null);
           } else {
             console.log("[Auth] Network or other error, keeping token for retry");
+            // Don't clear user on network errors
           }
+          setLoading(false);
+          return;
         }
       }
       
@@ -168,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
           }
           console.log("[Auth] User fetched successfully via Better Auth session");
+          setLoading(false);
           return;
         }
       } catch (error) {
