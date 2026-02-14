@@ -21,6 +21,13 @@ import { registerEmailLinkVerificationRoutes } from './routes/email-link-verific
 import { registerSmsAutoReplyRoutes } from './routes/sms-auto-reply.js';
 import { registerSmsAnalyzeReplyRoutes } from './routes/sms-analyze-reply.js';
 import { registerFinancialReportsRoutes } from './routes/financial-reports.js';
+import { registerSmsWebhookRoutes } from './routes/sms-webhook.js';
+import { registerSecurityLayersRoutes } from './routes/security-layers.js';
+import { registerInAppAlertsRoutes } from './routes/in-app-alerts.js';
+import { registerRiskPatternsRoutes } from './routes/risk-patterns.js';
+import { registerUserSecurityProfileRoutes } from './routes/user-security-profile.js';
+import { registerSecurityDashboardRoutes } from './routes/security-dashboard.js';
+import { registerChatbotAnalyzeRoutes } from './routes/chatbot-analyze.js';
 
 // Combine schemas
 const schema = { ...appSchema, ...authSchema };
@@ -53,6 +60,13 @@ registerEmailLinkVerificationRoutes(app, app.fastify);
 registerSmsAutoReplyRoutes(app, app.fastify);
 registerSmsAnalyzeReplyRoutes(app, app.fastify);
 registerFinancialReportsRoutes(app, app.fastify);
+registerSmsWebhookRoutes(app, app.fastify);
+registerSecurityLayersRoutes(app, app.fastify);
+registerInAppAlertsRoutes(app, app.fastify);
+registerRiskPatternsRoutes(app, app.fastify);
+registerUserSecurityProfileRoutes(app, app.fastify);
+registerSecurityDashboardRoutes(app, app.fastify);
+registerChatbotAnalyzeRoutes(app, app.fastify);
 
 await app.run();
 app.logger.info('MoMo Analytics application running');
