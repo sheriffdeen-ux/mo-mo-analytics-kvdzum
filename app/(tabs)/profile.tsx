@@ -251,32 +251,6 @@ export default function ProfileScreen() {
 
           <TouchableOpacity
             style={styles.menuItem}
-            onPress={() => router.push("/security-dashboard")}
-          >
-            <IconSymbol
-              ios_icon_name="shield.checkered"
-              android_material_icon_name="security"
-              size={24}
-              color={colors.primary}
-            />
-            <View style={styles.menuTextContainer}>
-              <Text style={[styles.menuTitle, { color: textColor }]}>
-                7-Layer Security
-              </Text>
-              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
-                Real-time fraud detection dashboard
-              </Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
             onPress={() => router.push("/alerts")}
           >
             <IconSymbol
@@ -317,36 +291,6 @@ export default function ProfileScreen() {
               </Text>
               <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
                 Analyze SMS messages for fraud
-              </Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="chevron-right"
-              size={20}
-              color={textSecondary}
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={() => {
-              // Navigate to a new transactions screen
-              // For now, we'll create a simple link
-              console.log('[Profile] View Transactions clicked - feature coming soon');
-            }}
-          >
-            <IconSymbol
-              ios_icon_name="list.bullet.rectangle.fill"
-              android_material_icon_name="receipt"
-              size={24}
-              color={colors.primary}
-            />
-            <View style={styles.menuTextContainer}>
-              <Text style={[styles.menuTitle, { color: textColor }]}>
-                View Transactions
-              </Text>
-              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
-                See all your MoMo transactions
               </Text>
             </View>
             <IconSymbol

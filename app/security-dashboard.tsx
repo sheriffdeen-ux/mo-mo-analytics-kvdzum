@@ -451,21 +451,6 @@ export default function SecurityDashboardScreen() {
 
           <TouchableOpacity
             style={[styles.actionCard, { backgroundColor: cardColor }]}
-            onPress={() => router.push('/behavior-profile')}
-          >
-            <IconSymbol
-              ios_icon_name="person.badge.shield.checkmark.fill"
-              android_material_icon_name="person"
-              size={32}
-              color={colors.accent}
-            />
-            <Text style={[styles.actionText, { color: textColor }]}>
-              My Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionCard, { backgroundColor: cardColor }]}
             onPress={() => router.push('/blacklist')}
           >
             <IconSymbol
