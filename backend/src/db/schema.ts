@@ -202,6 +202,8 @@ export const userSettings = pgTable(
     dailyLimit: decimal("daily_limit", { precision: 10, scale: 2 }).default(
       "2000"
     ),
+    dailySpendingLimit: decimal("daily_spending_limit", { precision: 10, scale: 2 }),
+    alertsEnabled: boolean("alerts_enabled").default(true),
     blockedMerchants: jsonb("blocked_merchants").$type<string[]>().default(
       []
     ),
