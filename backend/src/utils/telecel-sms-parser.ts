@@ -204,20 +204,28 @@ function extractELevy(sms: string): number | null {
  * Extract sender name and number for "received" transactions
  */
 function extractSenderInfo(sms: string): { name: string | null; number: string | null } {
-  // Pattern: "from 233593122760-AJARATU SEIDU" or "from NAME NUMBER"
-  const senderPattern = sms.match(/from\s+(\d+|[\d+]+)-?(.+?)(?:\s+on\s+|\.)/i);
-  if (senderPattern) {
-    const number = senderPattern[1];
-    const name = senderPattern[2]?.trim() || null;
+  // Pattern 1: "from 233593122760-AJARATU SEIDU" (number-name format)
+  const senderPattern1 = sms.match(/from\s+(\d+)\s*-\s*(.+?)(?:\s+on\s+|with|$)/i);
+  if (senderPattern1) {
+    const number = senderPattern1[1];
+    const name = senderPattern1[2]?.trim() || null;
     return { name, number };
   }
 
-  // Alternative pattern: "from NUMBER NAME"
-  const senderAlt = sms.match(/from\s+([\d+]+)\s+(.+?)(?:\s+on\s+|\.)/i);
-  if (senderAlt) {
+  // Pattern 2: "Transfer From: 233593122760-AJARATU SEIDU"
+  const senderPattern2 = sms.match(/Transfer\s+From:\s+(\d+)\s*-?\s*(.+?)(?:\s+on\s+|with|$)/i);
+  if (senderPattern2) {
+    const number = senderPattern2[1];
+    const name = senderPattern2[2]?.trim() || null;
+    return { name, number };
+  }
+
+  // Pattern 3: "from NUMBER NAME"
+  const senderPattern3 = sms.match(/from\s+([\d+]+)\s+(.+?)(?:\s+on\s+|\.)/i);
+  if (senderPattern3) {
     return {
-      number: senderAlt[1],
-      name: senderAlt[2]?.trim() || null,
+      number: senderPattern3[1],
+      name: senderPattern3[2]?.trim() || null,
     };
   }
 
@@ -228,22 +236,38 @@ function extractSenderInfo(sms: string): { name: string | null; number: string |
  * Extract receiver name and number for "sent" transactions
  */
 function extractReceiverInfo(sms: string): { name: string | null; number: string | null } {
-  // Pattern: "sent to 0241037421 DORCAS JATO"
-  const receiverPattern = sms.match(/sent\s+to\s+([\d+]+)\s+(.+?)(?:\s+on\s+|\.)/i);
-  if (receiverPattern) {
+  // Pattern 1: "sent to 0241037421 DORCAS JATO"
+  const receiverPattern1 = sms.match(/sent\s+to\s+([\d+]+)\s+(.+?)(?:\s+on\s+|with|$)/i);
+  if (receiverPattern1) {
     return {
-      number: receiverPattern[1],
-      name: receiverPattern[2]?.trim() || null,
+      number: receiverPattern1[1],
+      name: receiverPattern1[2]?.trim() || null,
     };
   }
 
-  // Alternative: "sent to PERSON NUMBER"
-  const receiverAlt = sms.match(/sent\s+to\s+(.+?)\s+([\d+]+)(?:\s+on\s+|\.)/i);
-  if (receiverAlt) {
+  // Pattern 2: "sent to PERSON NUMBER"
+  const receiverPattern2 = sms.match(/sent\s+to\s+([A-Za-z\s]+)\s+([\d+]+)(?:\s+on\s+|$)/i);
+  if (receiverPattern2) {
     return {
-      name: receiverAlt[1]?.trim() || null,
-      number: receiverAlt[2],
+      name: receiverPattern2[1]?.trim() || null,
+      number: receiverPattern2[2],
     };
+  }
+
+  // Pattern 3: Just extract the name after "sent to" if number not found
+  const receiverPattern3 = sms.match(/sent\s+to\s+(.+?)(?:\s+on\s+|with\s+|$)/i);
+  if (receiverPattern3) {
+    const content = receiverPattern3[1]?.trim();
+    // Check if it contains a number
+    const numberMatch = content?.match(/([\d+]+)/);
+    if (numberMatch) {
+      const name = content?.replace(numberMatch[1], "").trim() || null;
+      return {
+        name: name || null,
+        number: numberMatch[1],
+      };
+    }
+    return { name: content || null, number: null };
   }
 
   return { name: null, number: null };
@@ -253,16 +277,22 @@ function extractReceiverInfo(sms: string): { name: string | null; number: string
  * Extract merchant name for "cash_out" transactions
  */
 function extractMerchantName(sms: string): string | null {
-  // Pattern: "made for GHS35.00 to MERCHANT NAME"
-  const merchantPattern = sms.match(/to\s+(.+?)\.?\s+(?:Current|Your)/i);
-  if (merchantPattern) {
-    return merchantPattern[1]?.trim() || null;
+  // Pattern 1: "made for GHS35.00 to MERCHANT NAME. Current Balance:"
+  const merchantPattern1 = sms.match(/made\s+for\s+GHS[\d.]+\s+to\s+(.+?)\.?\s+(?:Current|Your|Financial)/i);
+  if (merchantPattern1) {
+    return merchantPattern1[1]?.trim() || null;
   }
 
-  // Alternative: "Cash Out made for GHS35.00 to MERCHANT"
-  const merchantAlt = sms.match(/Cash\s+Out\s+made\s+for\s+GHS[\d.]+\s+to\s+(.+?)(?:\.|$)/i);
-  if (merchantAlt) {
-    return merchantAlt[1]?.trim() || null;
+  // Pattern 2: "Cash Out made for GHS35.00 to MERCHANT"
+  const merchantPattern2 = sms.match(/[Cc]ash\s+[Oo]ut\s+made\s+for\s+GHS[\d.]+\s+to\s+(.+?)(?:\.|$)/i);
+  if (merchantPattern2) {
+    return merchantPattern2[1]?.trim() || null;
+  }
+
+  // Pattern 3: "to MERCHANT NAME. Current Balance:" or similar
+  const merchantPattern3 = sms.match(/to\s+(.+?)\.?\s+(?:Current|Your)\s+/i);
+  if (merchantPattern3) {
+    return merchantPattern3[1]?.trim() || null;
   }
 
   return null;
