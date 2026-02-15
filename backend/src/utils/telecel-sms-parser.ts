@@ -1,17 +1,19 @@
 /**
- * Enhanced SMS Parser for Telecel Cash and Ghana MoMo Providers
- * Handles multiple SMS formats from Telecel Cash, MTN, Vodafone, etc.
+ * Enhanced SMS Parser for All Ghana MoMo Providers
+ * Handles multiple SMS formats: received, sent, cash_out, airtime, bill_payment,
+ * balance_inquiry, failed transactions, promotional messages, and other MoMo messages
  */
 
 export interface ParsedTransaction {
   transactionId: string | null;
-  type: "received" | "sent" | "cash_out" | null;
+  type: "received" | "sent" | "cash_out" | "airtime" | "bill_payment" | "balance_inquiry" | "failed" | "promotional" | "other" | null;
   amount: number | null;
   senderName: string | null;
   senderNumber: string | null;
   receiverName: string | null;
   receiverNumber: string | null;
   merchantName: string | null;
+  billerName: string | null;
   transactionDate: string | null; // YYYY-MM-DD
   time: string | null; // HH:MM:SS
   balance: number | null;
@@ -26,8 +28,33 @@ export interface ParsedTransaction {
 /**
  * Detect transaction type from SMS content
  */
-function detectTransactionType(sms: string): "received" | "sent" | "cash_out" | null {
+function detectTransactionType(sms: string): "received" | "sent" | "cash_out" | "airtime" | "bill_payment" | "balance_inquiry" | "failed" | "promotional" | "other" | null {
   const smsUpper = sms.toUpperCase();
+
+  // Check for failed transactions (must be before checking other patterns)
+  if (smsUpper.includes("FAILED") || smsUpper.includes("UNSUCCESSFUL") || smsUpper.includes("DECLINED")) {
+    return "failed";
+  }
+
+  // Check for balance inquiry
+  if (smsUpper.includes("YOUR BALANCE") || smsUpper.includes("CURRENT BALANCE")) {
+    return "balance_inquiry";
+  }
+
+  // Check for airtime purchases
+  if (smsUpper.includes("AIRTIME") || smsUpper.includes("PURCHASED AIRTIME")) {
+    return "airtime";
+  }
+
+  // Check for bill payments
+  if (smsUpper.includes("BILL PAYMENT") || smsUpper.includes("PAID TO ECG") || smsUpper.includes("PAID TO GHANA WATER") || smsUpper.includes("PAID TO")) {
+    return "bill_payment";
+  }
+
+  // Check for promotional messages
+  if (smsUpper.includes("BONUS") || smsUpper.includes("OFFER") || smsUpper.includes("PROMOTION") || smsUpper.includes("2X BONUS")) {
+    return "promotional";
+  }
 
   // Check for received transaction
   if (smsUpper.includes("RECEIVED") || smsUpper.includes("YOU HAVE RECEIVED")) {
@@ -48,6 +75,8 @@ function detectTransactionType(sms: string): "received" | "sent" | "cash_out" | 
     return "cash_out";
   }
 
+  // If we have a provider but no specific type, mark as "other"
+  // This allows us to handle unrecognized but MoMo-related messages gracefully
   return null;
 }
 
@@ -299,28 +328,67 @@ function extractMerchantName(sms: string): string | null {
 }
 
 /**
- * Validate if SMS is a valid transaction message
+ * Extract biller name for "bill_payment" transactions
+ */
+function extractBillerName(sms: string): string | null {
+  // Pattern 1: "paid to ECG" or "paid to Ghana Water"
+  const billerPattern1 = sms.match(/paid\s+to\s+(.+?)(?:\.|,|\s+on\s+|$)/i);
+  if (billerPattern1) {
+    return billerPattern1[1]?.trim() || null;
+  }
+
+  // Pattern 2: "Bill payment of GHS50.00 to BILLER"
+  const billerPattern2 = sms.match(/[Bb]ill\s+[Pp]ayment\s+of\s+GHS[\d.]+\s+to\s+(.+?)(?:\.|,|$)/i);
+  if (billerPattern2) {
+    return billerPattern2[1]?.trim() || null;
+  }
+
+  return null;
+}
+
+/**
+ * Validate if SMS is a valid MoMo transaction message
+ * CRITICAL: Must handle ALL MoMo messages without returning errors
+ * Default to LOW RISK for all legitimate messages from known providers
  */
 function isValidTransaction(parsed: Omit<ParsedTransaction, 'isValidTransaction' | 'parseErrors'>): boolean {
-  // Must have: type, amount, transactionDate, time, provider
-  const hasRequiredFields =
-    parsed.type &&
-    parsed.amount &&
-    parsed.transactionDate &&
-    parsed.time &&
-    parsed.provider;
+  // Must have a known MoMo provider
+  if (!parsed.provider) {
+    return false;
+  }
 
-  // Must have recipient/sender info based on type
-  const hasRecipientInfo =
+  // Balance inquiries, failed transactions, and promotional messages are always valid
+  // (they don't require amount or transaction type)
+  if (parsed.type === "balance_inquiry" || parsed.type === "failed" || parsed.type === "promotional") {
+    return true;
+  }
+
+  // For "other" type (unrecognized MoMo messages), accept if we have provider
+  if (parsed.type === "other") {
+    return true;
+  }
+
+  // For actual transactions (received, sent, cash_out, airtime, bill_payment)
+  // Must have: type and provider (more lenient on amount/date/time)
+  if (!parsed.type) {
+    return false;
+  }
+
+  // Type-specific validation
+  const hasRequiredInfo =
     parsed.type === "received"
-      ? parsed.senderName || parsed.senderNumber
+      ? parsed.senderName || parsed.senderNumber || parsed.amount
       : parsed.type === "sent"
-      ? parsed.receiverName || parsed.receiverNumber
+      ? parsed.receiverName || parsed.receiverNumber || parsed.amount
       : parsed.type === "cash_out"
-      ? parsed.merchantName
+      ? parsed.merchantName || parsed.amount
+      : parsed.type === "airtime"
+      ? parsed.amount
+      : parsed.type === "bill_payment"
+      ? parsed.billerName || parsed.amount
       : true;
 
-  return !!(hasRequiredFields && hasRecipientInfo);
+  return !!hasRequiredInfo;
 }
 
 /**
@@ -358,6 +426,7 @@ export function parseTransaction(sms: string): ParsedTransaction {
   let receiverName: string | null = null;
   let receiverNumber: string | null = null;
   let merchantName: string | null = null;
+  let billerName: string | null = null;
 
   if (type === "received") {
     const sender = extractSenderInfo(sms);
@@ -369,6 +438,8 @@ export function parseTransaction(sms: string): ParsedTransaction {
     receiverNumber = receiver.number;
   } else if (type === "cash_out") {
     merchantName = extractMerchantName(sms);
+  } else if (type === "bill_payment") {
+    billerName = extractBillerName(sms);
   }
 
   const parsed: Omit<ParsedTransaction, 'isValidTransaction' | 'parseErrors'> = {
@@ -380,6 +451,7 @@ export function parseTransaction(sms: string): ParsedTransaction {
     receiverName,
     receiverNumber,
     merchantName,
+    billerName,
     transactionDate,
     time,
     balance,
@@ -397,8 +469,9 @@ export function parseTransaction(sms: string): ParsedTransaction {
 }
 
 /**
- * Quick validation check
+ * Quick validation check - returns true if SMS is from a known MoMo provider
+ * This is more lenient to allow any MoMo message to be processed
  */
 export function isValidMoMoMessage(sms: string): boolean {
-  return !!detectProvider(sms) && !!detectTransactionType(sms);
+  return !!detectProvider(sms);
 }

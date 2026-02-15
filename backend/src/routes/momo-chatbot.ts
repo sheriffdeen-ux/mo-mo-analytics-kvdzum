@@ -55,8 +55,30 @@ export function registerMomoChatbotRoutes(
         // Parse SMS
         const parsed = parseTransaction(body.smsMessage);
 
-        // Validate it's a real MoMo transaction
-        if (!parsed.isValidTransaction) {
+        // Check if it's from a known MoMo provider first
+        if (!parsed.provider) {
+          app.logger.info(
+            { userId },
+            "SMS is not from a known MoMo provider"
+          );
+
+          return reply.status(400).send({
+            success: false,
+            error:
+              "This doesn't appear to be from a known MoMo provider (MTN, Vodafone, Telecel, AirtelTigo). Please paste a valid MoMo SMS.",
+            details: {
+              rawSms: body.smsMessage,
+            },
+          });
+        }
+
+        // If it's a MoMo message but not a recognized transaction type, mark as "other"
+        if (!parsed.type && parsed.provider) {
+          parsed.type = "other" as any;
+        }
+
+        // Validate it's a valid MoMo transaction or message
+        if (!parsed.isValidTransaction && parsed.type !== "other") {
           app.logger.info(
             { userId, errors: parsed.parseErrors },
             "SMS is not a valid MoMo transaction"
@@ -85,8 +107,8 @@ export function registerMomoChatbotRoutes(
         const chatbotReply = generateChatbotReply(parsed, analysis);
 
         // Create transaction record
-        const transactionTypeValue: "sent" | "received" | "cash_out" | "withdrawal" | "deposit" | "airtime" | "bill_payment" =
-          (parsed.type as any) || "received";
+        const transactionTypeValue: "sent" | "received" | "cash_out" | "withdrawal" | "deposit" | "airtime" | "bill_payment" | "balance_inquiry" | "failed" | "promotional" | "other" =
+          (parsed.type as any) || "other";
 
         const providerValue: "MTN" | "Vodafone" | "AirtelTigo" | "Telecel Cash" | "MTN MOBILE MONEY" =
           (parsed.provider as any) || "MTN";
@@ -104,7 +126,11 @@ export function registerMomoChatbotRoutes(
                 ? parsed.receiverName || parsed.receiverNumber
                 : parsed.type === "received"
                 ? parsed.senderName || parsed.senderNumber
-                : parsed.merchantName,
+                : parsed.type === "cash_out"
+                ? parsed.merchantName
+                : parsed.type === "bill_payment"
+                ? parsed.billerName
+                : null,
             balance: parsed.balance?.toString(),
             transactionDate: new Date(
               `${parsed.transactionDate}T${parsed.time || "00:00:00"}Z`
@@ -194,7 +220,11 @@ export function registerMomoChatbotRoutes(
                 ? parsed.receiverName || parsed.receiverNumber
                 : parsed.type === "received"
                 ? parsed.senderName || parsed.senderNumber
-                : parsed.merchantName,
+                : parsed.type === "cash_out"
+                ? parsed.merchantName
+                : parsed.type === "bill_payment"
+                ? parsed.billerName
+                : null,
             date: parsed.transactionDate,
             time: parsed.time,
             balance: parsed.balance,
@@ -459,60 +489,58 @@ Just forward your MoMo SMS to analyze for fraud risk!
 
 /**
  * Helper function to generate chatbot reply
+ * Handles all message types: received, sent, cash_out, airtime, bill_payment,
+ * balance_inquiry, failed, promotional, and other MoMo messages
  */
 function generateChatbotReply(
   parsed: ReturnType<typeof parseTransaction>,
   analysis: Awaited<ReturnType<typeof executeFraudDetectionAnalysis>>
 ): string {
-  const amount = (parsed.amount || 0).toFixed(2);
-  const recipient =
-    parsed.type === "sent"
-      ? parsed.receiverName || parsed.receiverNumber || "Unknown"
-      : parsed.type === "received"
-      ? parsed.senderName || parsed.senderNumber || "Unknown"
-      : parsed.merchantName || "Unknown";
+  const balance = parsed.balance ? `GHS ${parsed.balance.toFixed(2)}` : "N/A";
+  const timestamp = parsed.time ? `${parsed.time}` : "Unknown time";
+  const date = parsed.transactionDate ? `${parsed.transactionDate} at ` : "";
 
-  const timestamp = `${parsed.transactionDate} at ${parsed.time}`;
-  const score = analysis.riskScore;
+  // Build reply based on transaction type
+  switch (parsed.type) {
+    case "received":
+      return `✅ You received GHS ${(parsed.amount || 0).toFixed(2)} from ${
+        parsed.senderName || parsed.senderNumber || "Unknown"
+      } at ${timestamp}. Balance: ${balance}. Risk: ${analysis.riskLevel}`;
 
-  let emoji = "";
-  let assessment = "";
+    case "sent":
+      return `✅ You sent GHS ${(parsed.amount || 0).toFixed(2)} to ${
+        parsed.receiverName || parsed.receiverNumber || "Unknown"
+      } at ${timestamp}. Balance: ${balance}. Risk: ${analysis.riskLevel}`;
 
-  switch (analysis.riskLevel) {
-    case "CRITICAL":
-      emoji = "🚨";
-      assessment = "CRITICAL RISK - This appears to be a SCAM";
-      break;
-    case "HIGH":
-      emoji = "⚠️";
-      assessment = "HIGH RISK - Suspicious transaction detected";
-      break;
-    case "MEDIUM":
-      emoji = "⚡";
-      assessment = "MEDIUM RISK - Unusual patterns detected";
-      break;
-    case "LOW":
-      emoji = "✅";
-      assessment = "LOW RISK - Appears to be legitimate";
-      break;
+    case "cash_out":
+      return `✅ Cash withdrawal of GHS ${(parsed.amount || 0).toFixed(2)} at ${
+        parsed.merchantName || "Unknown merchant"
+      }. Balance: ${balance}. Risk: ${analysis.riskLevel}`;
+
+    case "airtime":
+      return `✅ Airtime purchase of GHS ${(parsed.amount || 0).toFixed(2)} at ${timestamp}. Balance: ${balance}. Risk: ${analysis.riskLevel}`;
+
+    case "bill_payment":
+      return `✅ Bill payment of GHS ${(parsed.amount || 0).toFixed(2)} to ${
+        parsed.billerName || "Unknown biller"
+      } at ${timestamp}. Balance: ${balance}. Risk: ${analysis.riskLevel}`;
+
+    case "balance_inquiry":
+      return `ℹ️ Your current balance is ${balance} as of ${timestamp}.`;
+
+    case "failed":
+      return `ℹ️ Transaction failed at ${timestamp}. Your balance remains ${balance}.`;
+
+    case "promotional":
+      return `ℹ️ Promotional message from ${parsed.provider || "your MoMo provider"}. This is informational only.`;
+
+    case "other":
+      return `ℹ️ MoMo message received from ${parsed.provider || "your MoMo provider"}. Unable to extract full transaction details, but this appears to be a legitimate message.`;
+
+    default:
+      // Fallback for any unhandled types
+      return `ℹ️ MoMo message received from ${parsed.provider || "your MoMo provider"}. Balance: ${balance}.`;
   }
-
-  let reply = `Amount: GHS ${amount}
-Recipient: ${recipient}
-Time: ${timestamp}
-Risk Score: ${score}/100
-${emoji} ${assessment}`;
-
-  if (analysis.shouldAlert) {
-    reply += `
-
-⚠️ WARNING: ${analysis.riskFactors.join("; ")}
-
-🛡️ RECOMMENDED ACTIONS:
-${analysis.recommendedActions.map((action) => `- ${action}`).join("\n")}`;
-  }
-
-  return reply;
 }
 
 /**
