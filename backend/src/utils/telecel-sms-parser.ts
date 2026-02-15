@@ -19,6 +19,8 @@ export interface ParsedTransaction {
   balance: number | null;
   fee: number | null;
   eLevy: number | null;
+  tax: number | null;
+  reference: string | null;
   provider: string | null;
   rawSms: string;
   isValidTransaction: boolean;
@@ -61,11 +63,10 @@ function detectTransactionType(sms: string): "received" | "sent" | "cash_out" | 
     return "received";
   }
 
-  // Check for sent transaction
+  // Check for sent transaction (includes "Your payment of GHS X to TELECEL PUSH")
   if (
-    smsUpper.includes("SENT") &&
-    !smsUpper.includes("RECEIVED") &&
-    smsUpper.includes("TO")
+    (smsUpper.includes("SENT") && !smsUpper.includes("RECEIVED") && smsUpper.includes("TO")) ||
+    smsUpper.includes("YOUR PAYMENT OF")
   ) {
     return "sent";
   }
@@ -86,7 +87,8 @@ function detectTransactionType(sms: string): "received" | "sent" | "cash_out" | 
 function detectProvider(sms: string): string | null {
   const smsUpper = sms.toUpperCase();
 
-  if (smsUpper.includes("TELECEL CASH")) {
+  // Check for Telecel (both TELECEL CASH and TELECEL PUSH)
+  if (smsUpper.includes("TELECEL CASH") || smsUpper.includes("TELECEL PUSH")) {
     return "Telecel Cash";
   }
   if (smsUpper.includes("MTN MOBILE MONEY") || smsUpper.includes("MTN MOMO")) {
@@ -134,6 +136,19 @@ function extractTransactionId(sms: string): string | null {
 }
 
 /**
+ * Extract reference string (e.g., "SHERIFF DEEN HARUNA,233502086987,1")
+ */
+function extractReference(sms: string): string | null {
+  // Pattern: "Reference: SHERIFF DEEN HARUNA,233502086987,1"
+  const refMatch = sms.match(/Reference:\s*(.+?)(?:\.|Financial|$)/i);
+  if (refMatch) {
+    return refMatch[1]?.trim() || null;
+  }
+
+  return null;
+}
+
+/**
  * Extract amount in GHS
  */
 function extractAmount(sms: string): number | null {
@@ -151,8 +166,8 @@ function extractAmount(sms: string): number | null {
  * Extract balance
  */
 function extractBalance(sms: string): number | null {
-  // Pattern 1: "Your Telecel Cash balance is GHS14.23"
-  const balancePattern1 = sms.match(/[Yy]our\s+(?:Telecel\s+Cash\s+)?balance\s+is\s+GHS\s*([\d.]+)/);
+  // Pattern 1: "Your Telecel Cash balance is GHS14.23" or "Your new balance: GHS73.62"
+  const balancePattern1 = sms.match(/[Yy]our\s+(?:new\s+)?(?:Telecel\s+Cash\s+)?balance[:\s]+GHS\s*([\d.]+)/);
   if (balancePattern1) {
     const balance = parseFloat(balancePattern1[1]);
     return isNaN(balance) ? null : balance;
@@ -172,8 +187,8 @@ function extractBalance(sms: string): number | null {
  * Extract date in YYYY-MM-DD format
  */
 function extractDate(sms: string): string | null {
-  // Pattern 1: "on 2026-02-13 at"
-  const datePattern1 = sms.match(/on\s+(\d{4}-\d{2}-\d{2})/);
+  // Pattern 1: "on 2026-02-13 at" or "at 2026-02-13"
+  const datePattern1 = sms.match(/(?:on|at)\s+(\d{4}-\d{2}-\d{2})/);
   if (datePattern1) {
     return datePattern1[1];
   }
@@ -205,10 +220,17 @@ function extractTime(sms: string): string | null {
  * Extract fee
  */
 function extractFee(sms: string): number | null {
-  // Pattern: "You were charged GHS0.00" or "Fee charged: GHS0.50"
+  // Pattern 1: "You were charged GHS0.00" or "Fee charged: GHS0.50"
   const feeMatch = sms.match(/(?:You\s+were\s+charged|Fee\s+charged)[:\s]+GHS\s*([\d.]+)/i);
   if (feeMatch) {
     const fee = parseFloat(feeMatch[1]);
+    return isNaN(fee) ? null : fee;
+  }
+
+  // Pattern 2: "Fee was GHS 0.38"
+  const feeMatch2 = sms.match(/Fee\s+was\s+GHS\s*([\d.]+)/i);
+  if (feeMatch2) {
+    const fee = parseFloat(feeMatch2[1]);
     return isNaN(fee) ? null : fee;
   }
 
@@ -224,6 +246,24 @@ function extractELevy(sms: string): number | null {
   if (eLevy) {
     const levy = parseFloat(eLevy[1]);
     return isNaN(levy) ? null : levy;
+  }
+
+  return null;
+}
+
+/**
+ * Extract tax
+ */
+function extractTax(sms: string): number | null {
+  // Pattern: "Tax was GHS 0.38" or "Tax was GHS -" (dash means no tax)
+  const taxMatch = sms.match(/Tax\s+was\s+GHS\s+([\d.-]+)/i);
+  if (taxMatch) {
+    // If it's a dash, return 0
+    if (taxMatch[1] === "-") {
+      return 0;
+    }
+    const tax = parseFloat(taxMatch[1]);
+    return isNaN(tax) ? null : tax;
   }
 
   return null;
@@ -265,6 +305,16 @@ function extractSenderInfo(sms: string): { name: string | null; number: string |
  * Extract receiver name and number for "sent" transactions
  */
 function extractReceiverInfo(sms: string): { name: string | null; number: string | null } {
+  // Pattern 0: "Your payment of GHS X to TELECEL PUSH" or similar
+  const paymentPattern = sms.match(/[Yy]our\s+payment\s+of\s+GHS[\d.]+\s+to\s+(.+?)(?:\s+has\s+been|at\s+|$)/i);
+  if (paymentPattern) {
+    const recipient = paymentPattern[1]?.trim();
+    return {
+      name: recipient || null,
+      number: null,
+    };
+  }
+
   // Pattern 1: "sent to 0241037421 DORCAS JATO"
   const receiverPattern1 = sms.match(/sent\s+to\s+([\d+]+)\s+(.+?)(?:\s+on\s+|with|$)/i);
   if (receiverPattern1) {
@@ -419,6 +469,8 @@ export function parseTransaction(sms: string): ParsedTransaction {
   const balance = extractBalance(sms);
   const fee = extractFee(sms);
   const eLevy = extractELevy(sms);
+  const tax = extractTax(sms);
+  const reference = extractReference(sms);
 
   // Extract sender/receiver info based on type
   let senderName: string | null = null;
@@ -457,6 +509,8 @@ export function parseTransaction(sms: string): ParsedTransaction {
     balance,
     fee,
     eLevy,
+    tax,
+    reference,
     provider,
     rawSms: sms,
   };
