@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import * as schema from "../db/schema.js";
 import type { App } from "../index.js";
 import { parseTransaction } from "../utils/telecel-sms-parser.js";
+import { parseMultiTransaction, type Transaction } from "../utils/multi-transaction-parser.js";
 import { executeFraudDetectionAnalysis } from "../utils/momo-fraud-agent.js";
 import { eq } from "drizzle-orm";
 
@@ -52,11 +53,11 @@ export function registerMomoChatbotRoutes(
       );
 
       try {
-        // Parse SMS
-        const parsed = parseTransaction(body.smsMessage);
+        // Try to parse as multi-transaction SMS first
+        const multiResult = parseMultiTransaction(body.smsMessage);
 
-        // Check if it's from a known MoMo provider first
-        if (!parsed.provider) {
+        // Check if we found any transactions
+        if (multiResult.totalTransactions === 0 || multiResult.providers.size === 0) {
           app.logger.info(
             { userId },
             "SMS is not from a known MoMo provider"
@@ -71,6 +72,25 @@ export function registerMomoChatbotRoutes(
             },
           });
         }
+
+        // Handle multi-transaction SMS
+        if (multiResult.totalTransactions > 1) {
+          app.logger.info(
+            { userId, transactionCount: multiResult.totalTransactions },
+            "Multi-transaction SMS detected"
+          );
+
+          return await handleMultiTransactionSMS(
+            app,
+            reply,
+            userId,
+            body.smsMessage,
+            multiResult.transactions
+          );
+        }
+
+        // Single transaction - use original logic
+        const parsed = parseTransaction(body.smsMessage);
 
         // If it's a MoMo message but not a recognized transaction type, mark as "other"
         if (!parsed.type && parsed.provider) {
@@ -485,6 +505,172 @@ Just forward your MoMo SMS to analyze for fraud risk!
       }
     }
   );
+}
+
+/**
+ * Handle multi-transaction SMS
+ */
+async function handleMultiTransactionSMS(
+  app: App,
+  reply: FastifyReply,
+  userId: string,
+  rawSms: string,
+  transactions: Transaction[]
+): Promise<void> {
+  app.logger.info(
+    { userId, transactionCount: transactions.length },
+    "Processing multi-transaction SMS"
+  );
+
+  const analyzedTransactions = [];
+  let overallRiskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" = "LOW";
+  let allRiskScores: number[] = [];
+
+  // Analyze each transaction
+  for (let i = 0; i < transactions.length; i++) {
+    const txn = transactions[i];
+
+    // Create a compatible parsed object for fraud analysis
+    const pseudoParsed = {
+      transactionId: txn.transactionId,
+      type: (txn.type === "withdrawal" ? "cash_out" : txn.type === "bundle" ? "airtime" : txn.type) as any,
+      amount: txn.amount,
+      senderName: null,
+      senderNumber: null,
+      receiverName: txn.recipientName,
+      receiverNumber: txn.recipientNumber,
+      merchantName: txn.type === "withdrawal" ? txn.recipientName : null,
+      billerName: txn.type === "bill_payment" ? txn.recipientName : null,
+      transactionDate: txn.transactionDate,
+      time: txn.time,
+      balance: txn.balance,
+      fee: txn.fee,
+      eLevy: txn.eLevyCharge,
+      tax: txn.tax,
+      reference: txn.reference,
+      provider: txn.provider ? `${txn.provider} MOBILE MONEY` : null,
+      rawSms,
+      isValidTransaction: txn.amount !== null && txn.provider !== null,
+      parseErrors: [],
+    };
+
+    // Run fraud detection on this transaction
+    const analysis = await executeFraudDetectionAnalysis(app, userId, pseudoParsed as any, rawSms);
+
+    allRiskScores.push(analysis.riskScore);
+
+    // Update overall risk level to highest found
+    if (analysis.riskLevel === "CRITICAL") {
+      overallRiskLevel = "CRITICAL";
+    } else if (analysis.riskLevel === "HIGH" && overallRiskLevel !== "CRITICAL") {
+      overallRiskLevel = "HIGH";
+    } else if (analysis.riskLevel === "MEDIUM" && overallRiskLevel === "LOW") {
+      overallRiskLevel = "MEDIUM";
+    }
+
+    analyzedTransactions.push({
+      index: i + 1,
+      provider: txn.provider,
+      type: txn.type,
+      amount: txn.amount,
+      recipient: txn.recipientName || txn.recipientNumber || "Unknown",
+      balance: txn.balance,
+      fee: txn.fee,
+      riskScore: analysis.riskScore,
+      riskLevel: analysis.riskLevel,
+      riskFactors: analysis.riskFactors,
+    });
+
+    // Create transaction record
+    const transactionTypeValue: "sent" | "received" | "cash_out" | "withdrawal" | "deposit" | "airtime" | "bill_payment" | "balance_inquiry" | "failed" | "promotional" | "other" =
+      txn.type === "bundle" ? "airtime" : (txn.type as any) || "other";
+
+    const providerMap: Record<string, "MTN" | "Vodafone" | "AirtelTigo" | "Telecel Cash" | "MTN MOBILE MONEY"> = {
+      "MTN": "MTN MOBILE MONEY",
+      "Telecel": "Telecel Cash",
+      "Vodafone": "Vodafone",
+      "AirtelTigo": "AirtelTigo",
+    };
+
+    const providerValue = providerMap[txn.provider || ""] || "MTN MOBILE MONEY";
+
+    try {
+      const [transaction] = await app.db
+        .insert(schema.transactions)
+        .values({
+          userId,
+          rawSms,
+          provider: providerValue,
+          transactionType: transactionTypeValue,
+          amount: (txn.amount || 0).toString(),
+          recipient: txn.recipientName || txn.recipientNumber || null,
+          balance: txn.balance?.toString(),
+          transactionDate: txn.transactionDate ? new Date(txn.transactionDate) : new Date(),
+          riskScore: analysis.riskScore,
+          riskLevel: analysis.riskLevel,
+          riskReasons: analysis.riskFactors,
+          layer1SmsRaw: rawSms,
+          layer2ValidationStatus: analysis.layerAnalysis.layer2.status,
+          layer3NlpScore: analysis.layerAnalysis.layer3.totalPatternScore.toString() as any,
+          layer4VelocityScore: analysis.layerAnalysis.layer4.anomalyScore.toString() as any,
+          layer4AnomalyDetected: analysis.layerAnalysis.layer4.anomalyScore > 0,
+          layer5RiskBreakdown: {
+            layer1: analysis.layerAnalysis.layer1.senderIdScore,
+            layer3: analysis.layerAnalysis.layer3.totalPatternScore,
+            layer4: analysis.layerAnalysis.layer4.anomalyScore,
+            layer5: analysis.layerAnalysis.layer5.velocityScore,
+            layer6: analysis.layerAnalysis.layer6.totalAmountScore,
+            layer7: analysis.layerAnalysis.layer7.totalTemporalScore,
+          },
+          layer6AlertLevel: analysis.riskLevel,
+          layer7AuditTrail: {
+            timestamp: new Date().toISOString(),
+            riskScore: analysis.riskScore,
+            riskLevel: analysis.riskLevel,
+            riskFactors: analysis.riskFactors,
+          },
+        })
+        .returning();
+
+      // Create alert if needed
+      if (analysis.shouldAlert) {
+        await app.db.insert(schema.inAppAlerts).values({
+          userId,
+          transactionId: transaction.id,
+          alertLevel: analysis.riskLevel as any,
+          title: `${analysis.riskLevel} Risk Transaction Detected (Transaction ${i + 1})`,
+          message: analysis.riskFactors.join("; "),
+          riskScore: analysis.riskScore,
+          riskReasons: analysis.riskFactors,
+          isRead: false,
+        });
+      }
+    } catch (dbError) {
+      app.logger.error(
+        { err: dbError, userId, txnIndex: i },
+        "Failed to store multi-transaction record"
+      );
+    }
+  }
+
+  // Generate summary
+  const summary = `Analyzed ${analyzedTransactions.length} transactions. ${
+    overallRiskLevel === "LOW" ? "All appear legitimate." : `Overall risk level: ${overallRiskLevel}`
+  }`;
+
+  app.logger.info(
+    { userId, transactionCount: analyzedTransactions.length, overallRiskLevel },
+    "Multi-transaction SMS analysis completed"
+  );
+
+  return reply.status(200).send({
+    success: true,
+    isMultiTransaction: true,
+    transactions: analyzedTransactions,
+    summary,
+    overallRiskLevel,
+    totalTransactionCount: analyzedTransactions.length,
+  });
 }
 
 /**
