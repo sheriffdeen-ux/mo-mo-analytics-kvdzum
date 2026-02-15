@@ -53,6 +53,9 @@
       "typedRoutes": true
     },
     "extra": {
+      "eas": {
+        "projectId": "b8045f58-fdd4-406c-aaf1-49ada55230e9"
+      },
       "router": {},
       "backendUrl": "https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev",
       "arkeselApiKey": "TkpKcE5QQ09PREN1dFBOWUV1eGQ",
