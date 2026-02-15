@@ -31,6 +31,7 @@ import { registerChatbotAnalyzeRoutes } from './routes/chatbot-analyze.js';
 import { registerChatbotSmsAnalyzeRoutes } from './routes/chatbot-sms-analyze.js';
 import { registerChatbotStatsRoutes } from './routes/chatbot-stats.js';
 import { registerFraudAnalysisRoutes } from './routes/fraud-analysis.js';
+import { registerMomoChatbotRoutes } from './routes/momo-chatbot.js';
 
 // Combine schemas
 const schema = { ...appSchema, ...authSchema };
@@ -70,9 +71,10 @@ registerRiskPatternsRoutes(app, app.fastify);
 registerUserSecurityProfileRoutes(app, app.fastify);
 registerSecurityDashboardRoutes(app, app.fastify);
 registerChatbotAnalyzeRoutes(app, app.fastify);
-registerChatbotSmsAnalyzeRoutes(app, app.fastify);
+// registerChatbotSmsAnalyzeRoutes(app, app.fastify); // Superseded by registerMomoChatbotRoutes with full 7-layer detection
 registerChatbotStatsRoutes(app, app.fastify);
 registerFraudAnalysisRoutes(app, app.fastify);
+registerMomoChatbotRoutes(app, app.fastify);
 
 await app.run();
 app.logger.info('MoMo Analytics application running');
