@@ -11,6 +11,8 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,6 +39,7 @@ export default function ChatbotScreen() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   const bgColor = isDark ? colors.backgroundDark : colors.background;
   const textColor = isDark ? colors.textDark : colors.text;
@@ -49,7 +52,7 @@ export default function ChatbotScreen() {
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       type: 'bot',
-      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our 7-layer security framework.\n\n✅ Supported Providers:\n• MTN MoMo\n• Vodafone Cash\n• AirtelTigo Money\n• Telecel Cash\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Example SMS:\n"0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23."',
+      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our advanced 7-layer security framework with ML-inspired fraud detection.\n\n✅ Supported Providers:\n• MTN MoMo (447, 4255, MTNMoMo)\n• Vodafone Cash (557, VCash)\n• AirtelTigo Money (505, TMoney)\n• Telecel Cash\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Commands:\nType any of these commands:\n• HELP - Show all commands\n• TODAY - Today\'s transactions\n• WEEK - This week\'s summary\n• STATS - Transaction statistics\n• HISTORY - Recent transactions\n\n📝 Example SMS:\n"0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23."',
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
@@ -66,48 +69,93 @@ export default function ChatbotScreen() {
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const smsText = inputText;
+    const messageText = inputText.trim();
     setInputText('');
     setLoading(true);
 
-    console.log('[Chatbot] Analyzing SMS:', smsText);
+    console.log('[Chatbot] Processing message:', messageText);
+
+    // Check if it's a command
+    const commandUpper = messageText.toUpperCase();
+    const isCommand = ['HELP', 'TODAY', 'WEEK', 'STATS', 'HISTORY'].includes(commandUpper) ||
+                      commandUpper.startsWith('BUDGET ') ||
+                      commandUpper.startsWith('ALERTS ');
 
     try {
-      const response = await authenticatedPost<{
-        success: boolean;
-        chatbotReply: string;
-        transaction: any;
-        analysis: any;
-        error?: string;
-      }>('/api/chatbot/sms/analyze', {
-        smsMessage: smsText,
-      });
+      if (isCommand) {
+        // Handle command
+        console.log('[Chatbot] Processing command:', commandUpper);
+        
+        const response = await authenticatedPost<{
+          success: boolean;
+          reply: string;
+          data?: any;
+          error?: string;
+        }>('/api/chatbot/command', {
+          command: messageText,
+        });
 
-      console.log('[Chatbot] Analysis complete:', response);
+        console.log('[Chatbot] Command response:', response);
 
-      if (!response.success && response.error) {
-        const errorMessage: ChatMessage = {
+        if (!response.success && response.error) {
+          const errorMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            type: 'bot',
+            content: `❌ ${response.error}`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+          return;
+        }
+
+        const botMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'bot',
-          content: `❌ ${response.error}\n\nPlease paste a valid MoMo transaction SMS (MTN, Vodafone, AirtelTigo, or Telecel Cash).`,
+          content: response.reply,
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, errorMessage]);
-        return;
+
+        setMessages(prev => [...prev, botMessage]);
+      } else {
+        // Analyze SMS
+        console.log('[Chatbot] Analyzing SMS:', messageText);
+
+        const response = await authenticatedPost<{
+          success: boolean;
+          chatbotReply: string;
+          transaction: any;
+          analysis: any;
+          error?: string;
+        }>('/api/chatbot/sms/analyze', {
+          smsMessage: messageText,
+        });
+
+        console.log('[Chatbot] Analysis complete:', response);
+
+        if (!response.success && response.error) {
+          const errorMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            type: 'bot',
+            content: `❌ ${response.error}\n\nPlease paste a valid MoMo transaction SMS (MTN, Vodafone, AirtelTigo, or Telecel Cash).\n\nOr type HELP to see available commands.`,
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, errorMessage]);
+          return;
+        }
+
+        const botMessage: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          type: 'bot',
+          content: response.chatbotReply,
+          timestamp: new Date(),
+          riskLevel: response.analysis?.riskLevel,
+          analysis: response.analysis,
+        };
+
+        setMessages(prev => [...prev, botMessage]);
       }
-
-      const botMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        type: 'bot',
-        content: response.chatbotReply,
-        timestamp: new Date(),
-        riskLevel: response.analysis?.riskLevel,
-        analysis: response.analysis,
-      };
-
-      setMessages(prev => [...prev, botMessage]);
     } catch (error: any) {
-      console.error('[Chatbot] Analysis failed:', error);
+      console.error('[Chatbot] Request failed:', error);
       
       let errorText = 'Unknown error';
       
@@ -127,7 +175,7 @@ export default function ChatbotScreen() {
       const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: 'bot',
-        content: `❌ Analysis Failed\n\n${errorText}\n\nPlease make sure you're pasting a valid MoMo transaction SMS from MTN, Vodafone, AirtelTigo, or Telecel Cash.`,
+        content: `❌ Request Failed\n\n${errorText}\n\nPlease try again or type HELP for available commands.`,
         timestamp: new Date(),
       };
 
@@ -173,6 +221,19 @@ export default function ChatbotScreen() {
           headerBackTitle: 'Back',
           headerStyle: { backgroundColor: bgColor },
           headerTintColor: textColor,
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => setShowInfo(true)}
+              style={{ marginRight: 16 }}
+            >
+              <IconSymbol
+                ios_icon_name="info.circle"
+                android_material_icon_name="info"
+                size={24}
+                color={textColor}
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -272,7 +333,7 @@ export default function ChatbotScreen() {
               <View style={[styles.loadingBubble, { backgroundColor: cardColor }]}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={[styles.loadingText, { color: textSecondaryColor }]}>
-                  Analyzing through 7 security layers...
+                  Analyzing with ML-inspired fraud detection...
                 </Text>
               </View>
             </View>
@@ -292,7 +353,7 @@ export default function ChatbotScreen() {
             ]}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Paste MoMo SMS here..."
+            placeholder="Paste MoMo SMS or type a command (HELP, TODAY, STATS)..."
             placeholderTextColor={textSecondaryColor}
             multiline
             maxLength={500}
@@ -317,6 +378,107 @@ export default function ChatbotScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Info Modal */}
+      <Modal
+        visible={showInfo}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInfo(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowInfo(false)}
+        >
+          <Pressable
+            style={[styles.modalContent, { backgroundColor: cardColor }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: textColor }]}>
+                🛡️ Advanced Fraud Detection
+              </Text>
+              <TouchableOpacity onPress={() => setShowInfo(false)}>
+                <IconSymbol
+                  ios_icon_name="xmark.circle.fill"
+                  android_material_icon_name="close"
+                  size={28}
+                  color={textSecondaryColor}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              <Text style={[styles.infoSection, { color: textColor }]}>
+                <Text style={styles.infoTitle}>🔍 7-Layer Security Framework</Text>
+                {'\n\n'}
+                <Text style={{ color: textSecondaryColor }}>
+                  1. SMS Parsing & Sender Verification{'\n'}
+                  2. Input Validation{'\n'}
+                  3. Scam Pattern Recognition (Ghana-specific){'\n'}
+                  4. Historical Behavior Analysis{'\n'}
+                  5. Transaction Velocity Checks{'\n'}
+                  6. Amount-based Risk Scoring{'\n'}
+                  7. Temporal Analysis
+                </Text>
+              </Text>
+
+              <Text style={[styles.infoSection, { color: textColor }]}>
+                <Text style={styles.infoTitle}>🚨 Sender Verification</Text>
+                {'\n\n'}
+                <Text style={{ color: textSecondaryColor }}>
+                  We verify SMS sender IDs against official MoMo shortcodes:{'\n\n'}
+                  • MTN: 447, 4255, MTNMoMo{'\n'}
+                  • Vodafone: 557, VCash{'\n'}
+                  • AirtelTigo: 505, TMoney{'\n\n'}
+                  SMS from unknown senders are flagged as HIGH RISK.
+                </Text>
+              </Text>
+
+              <Text style={[styles.infoSection, { color: textColor }]}>
+                <Text style={styles.infoTitle}>📊 Risk Levels</Text>
+                {'\n\n'}
+                <Text style={{ color: colors.riskLow }}>• LOW (&lt;35): Normal transaction</Text>
+                {'\n'}
+                <Text style={{ color: colors.riskMedium }}>• MEDIUM (35-59): Monitor closely</Text>
+                {'\n'}
+                <Text style={{ color: colors.riskHigh }}>• HIGH (60-79): Review immediately</Text>
+                {'\n'}
+                <Text style={{ color: colors.riskCritical }}>• CRITICAL (80+): URGENT ACTION NEEDED</Text>
+              </Text>
+
+              <Text style={[styles.infoSection, { color: textColor }]}>
+                <Text style={styles.infoTitle}>💡 Available Commands</Text>
+                {'\n\n'}
+                <Text style={{ color: textSecondaryColor }}>
+                  • HELP - Show all commands{'\n'}
+                  • TODAY - Today's transactions{'\n'}
+                  • WEEK - This week's summary{'\n'}
+                  • STATS - Transaction statistics{'\n'}
+                  • HISTORY - Recent transactions
+                </Text>
+              </Text>
+
+              <Text style={[styles.infoSection, { color: textColor }]}>
+                <Text style={styles.infoTitle}>🔒 Privacy Guarantee</Text>
+                {'\n\n'}
+                <Text style={{ color: textSecondaryColor }}>
+                  We only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored on our servers.
+                </Text>
+              </Text>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.primary }]}
+              onPress={() => setShowInfo(false)}
+            >
+              <Text style={[styles.modalButtonText, { color: colors.text }]}>
+                Got it
+              </Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -430,5 +592,51 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '80%',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalBody: {
+    maxHeight: 400,
+  },
+  infoSection: {
+    marginBottom: 20,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  infoTitle: {
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  modalButton: {
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
