@@ -110,27 +110,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (token) {
         console.log("[Auth] Found bearer token:", token.substring(0, 20) + "...");
         
-        // Check if this is a testing token
-        if (token.startsWith('test-token-')) {
-          console.log("[Auth] Testing mode detected - creating mock user");
-          const mockUser: User = {
-            id: 'test-user-123',
-            email: 'test@example.com',
-            fullName: 'Test User',
-            phoneNumber: '+233241234567',
-            emailVerified: true,
-            subscriptionStatus: 'trial',
-            smsConsentGiven: true,
-            smsAutoDetectionEnabled: true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          setUser(mockUser);
-          setLoading(false);
-          console.log("[Auth] Mock user created for testing:", mockUser);
-          return;
-        }
-        
         // Try to fetch real user data
         try {
           const { authenticatedGet } = await import('@/utils/api');

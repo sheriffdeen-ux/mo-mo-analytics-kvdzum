@@ -79,34 +79,6 @@ export default function AuthScreen() {
     return text;
   };
 
-  const handleSkipLogin = async () => {
-    console.log("[Auth] Skip login for testing - creating mock session");
-    setLoading(true);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      const { setBearerToken } = await import('@/utils/api');
-      
-      // Create a mock token for testing
-      const mockToken = `test-token-${Date.now()}`;
-      await setBearerToken(mockToken);
-      
-      console.log("✅ Mock session created! Redirecting to home...");
-      setSuccessMessage("Testing mode activated! You can now explore the app.");
-      
-      // Redirect to home page immediately
-      setTimeout(() => {
-        router.replace("/(tabs)/(home)/");
-      }, 500);
-    } catch (err: any) {
-      console.error("❌ Failed to skip login:", err);
-      setError("Failed to skip login. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSignup = async () => {
     console.log("[Auth] Signup attempt");
     
@@ -164,7 +136,7 @@ export default function AuthScreen() {
       
       console.log("[Auth] Signup response:", response);
       
-      // Store the access token - backend now returns token immediately
+      // Store the access token
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
         console.log("[Auth] Access token stored successfully");
@@ -176,7 +148,7 @@ export default function AuthScreen() {
       // Fetch user data to update context
       await fetchUser();
       
-      console.log("✅ Account created successfully! Email verification bypassed for testing. Redirecting to home...");
+      console.log("✅ Account created successfully! Redirecting to home...");
       setSuccessMessage("Account created successfully! You can now use the app.");
       
       // Redirect to home page
@@ -240,7 +212,7 @@ export default function AuthScreen() {
       
       console.log("[Auth] Login response:", response);
       
-      // Store the access token - backend now allows login without email verification
+      // Store the access token
       if (response.accessToken) {
         await setBearerToken(response.accessToken);
         console.log("[Auth] Access token stored successfully");
@@ -252,7 +224,7 @@ export default function AuthScreen() {
       // Fetch user data to update context
       await fetchUser();
       
-      console.log("✅ Login successful! Email verification not required for testing. Redirecting to home...");
+      console.log("✅ Login successful! Redirecting to home...");
       setSuccessMessage("Login successful! Welcome back.");
       
       // Redirect to home page
@@ -320,25 +292,6 @@ export default function AuthScreen() {
               <Text style={styles.successText}>{successMessage}</Text>
             </View>
           ) : null}
-
-          {/* Skip Login Button for Testing */}
-          <TouchableOpacity
-            style={[styles.skipButton]}
-            onPress={handleSkipLogin}
-            disabled={loading}
-          >
-            <Text style={styles.skipButtonText}>
-              🚀 Skip Login (Testing Mode)
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={[styles.dividerLine, { backgroundColor: inputBorder }]} />
-            <Text style={[styles.dividerText, { color: isDark ? colors.textSecondary : "#666" }]}>
-              OR
-            </Text>
-            <View style={[styles.dividerLine, { backgroundColor: inputBorder }]} />
-          </View>
 
           <TextInput
             style={[styles.input, { backgroundColor: inputBg, borderColor: inputBorder, color: textColor }]}
@@ -496,33 +449,6 @@ const styles = StyleSheet.create({
     color: "#2e7d32",
     fontSize: 14,
     textAlign: "center",
-  },
-  skipButton: {
-    height: 50,
-    backgroundColor: "#FF9800",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  skipButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    fontSize: 14,
-    fontWeight: "500",
   },
   input: {
     height: 50,
