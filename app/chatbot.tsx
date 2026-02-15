@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,6 +35,7 @@ export default function ChatbotScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { user } = useAuth();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -52,11 +53,18 @@ export default function ChatbotScreen() {
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       type: 'bot',
-      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our advanced 7-layer security framework with ML-inspired fraud detection.\n\n✅ Supported Providers:\n• MTN MoMo (447, 4255, MTNMoMo)\n• Vodafone Cash (557, VCash)\n• AirtelTigo Money (505, TMoney)\n• Telecel Cash\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Commands:\nType any of these commands:\n• HELP - Show all commands\n• TODAY - Today\'s transactions\n• WEEK - This week\'s summary\n• STATS - Transaction statistics\n• HISTORY - Recent transactions\n\n📝 Example SMS:\n"0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23."',
+      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our advanced 7-layer security framework with ML-inspired fraud detection.\n\n✅ Supported Providers:\n• MTN MoMo (447, 4255, MTNMoMo)\n• Vodafone Cash (557, VCash)\n• AirtelTigo Money (505, TMoney)\n• Telecel Cash\n\n📋 Supported Transaction Types:\n• Received Money\n• Sent Money\n• Cash Out/Withdrawal\n• Airtime Purchase\n• Bill Payments\n• Balance Inquiry\n• Failed Transactions\n• Promotional Messages\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Commands:\nType any of these commands:\n• HELP - Show all commands\n• TODAY - Today\'s transactions\n• WEEK - This week\'s summary\n• STATS - Transaction statistics\n• HISTORY - Recent transactions\n\n📝 Example SMS:\n"0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23."',
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
   }, []);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
   const handleSendMessage = async () => {
     if (!inputText.trim()) return;
@@ -88,7 +96,8 @@ export default function ChatbotScreen() {
         
         const response = await authenticatedPost<{
           success: boolean;
-          reply: string;
+          response?: string;
+          reply?: string;
           data?: any;
           error?: string;
         }>('/api/chatbot/command', {
@@ -111,7 +120,7 @@ export default function ChatbotScreen() {
         const botMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'bot',
-          content: response.reply,
+          content: response.response || response.reply || 'Command executed successfully.',
           timestamp: new Date(),
         };
 
@@ -122,10 +131,12 @@ export default function ChatbotScreen() {
 
         const response = await authenticatedPost<{
           success: boolean;
-          chatbotReply: string;
-          transaction: any;
-          analysis: any;
+          chatbotReply?: string;
+          reply?: string;
+          transaction?: any;
+          analysis?: any;
           error?: string;
+          details?: any;
         }>('/api/chatbot/sms/analyze', {
           smsMessage: messageText,
         });
@@ -133,10 +144,18 @@ export default function ChatbotScreen() {
         console.log('[Chatbot] Analysis complete:', response);
 
         if (!response.success && response.error) {
+          let errorContent = `❌ ${response.error}`;
+          
+          // Provide helpful guidance based on error type
+          if (response.error.includes('not a valid MoMo transaction') || 
+              response.error.includes('not from a known MoMo provider')) {
+            errorContent += '\n\n💡 Tips:\n• Make sure you\'re pasting a complete MoMo SMS\n• SMS should be from MTN, Vodafone, Telecel, or AirtelTigo\n• Include the full message with amount, date, and time\n\nOr type HELP to see available commands.';
+          }
+          
           const errorMessage: ChatMessage = {
             id: (Date.now() + 1).toString(),
             type: 'bot',
-            content: `❌ ${response.error}\n\nPlease paste a valid MoMo transaction SMS (MTN, Vodafone, AirtelTigo, or Telecel Cash).\n\nOr type HELP to see available commands.`,
+            content: errorContent,
             timestamp: new Date(),
           };
           setMessages(prev => [...prev, errorMessage]);
@@ -146,7 +165,7 @@ export default function ChatbotScreen() {
         const botMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'bot',
-          content: response.chatbotReply,
+          content: response.chatbotReply || response.reply || 'Analysis complete.',
           timestamp: new Date(),
           riskLevel: response.analysis?.riskLevel,
           analysis: response.analysis,
@@ -170,6 +189,8 @@ export default function ChatbotScreen() {
         errorText = 'Authentication error. Please try logging in again.';
       } else if (errorText.includes('Network')) {
         errorText = 'Network error. Please check your internet connection and try again.';
+      } else if (errorText.includes('timeout')) {
+        errorText = 'Request timed out. Please try again.';
       }
       
       const errorMessage: ChatMessage = {
@@ -212,6 +233,11 @@ export default function ChatbotScreen() {
     return timeText;
   };
 
+  const handlePasteExample = (exampleSms: string) => {
+    setInputText(exampleSms);
+    setShowInfo(false);
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bgColor }]} edges={['top']}>
       <Stack.Screen
@@ -244,8 +270,10 @@ export default function ChatbotScreen() {
       >
         {/* Messages */}
         <ScrollView
+          ref={scrollViewRef}
           style={styles.messagesContainer}
           contentContainerStyle={styles.messagesContent}
+          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
         >
           {messages.map((message) => {
             const isUser = message.type === 'user';
@@ -356,7 +384,7 @@ export default function ChatbotScreen() {
             placeholder="Paste MoMo SMS or type a command (HELP, TODAY, STATS)..."
             placeholderTextColor={textSecondaryColor}
             multiline
-            maxLength={500}
+            maxLength={1000}
             editable={!loading}
           />
           <TouchableOpacity
@@ -424,13 +452,29 @@ export default function ChatbotScreen() {
               </Text>
 
               <Text style={[styles.infoSection, { color: textColor }]}>
+                <Text style={styles.infoTitle}>📋 Supported Transaction Types</Text>
+                {'\n\n'}
+                <Text style={{ color: textSecondaryColor }}>
+                  • Received Money{'\n'}
+                  • Sent Money{'\n'}
+                  • Cash Out/Withdrawal{'\n'}
+                  • Airtime Purchase{'\n'}
+                  • Bill Payments{'\n'}
+                  • Balance Inquiry{'\n'}
+                  • Failed Transactions{'\n'}
+                  • Promotional Messages
+                </Text>
+              </Text>
+
+              <Text style={[styles.infoSection, { color: textColor }]}>
                 <Text style={styles.infoTitle}>🚨 Sender Verification</Text>
                 {'\n\n'}
                 <Text style={{ color: textSecondaryColor }}>
                   We verify SMS sender IDs against official MoMo shortcodes:{'\n\n'}
                   • MTN: 447, 4255, MTNMoMo{'\n'}
                   • Vodafone: 557, VCash{'\n'}
-                  • AirtelTigo: 505, TMoney{'\n\n'}
+                  • AirtelTigo: 505, TMoney{'\n'}
+                  • Telecel Cash: 2020, TeleCash{'\n\n'}
                   SMS from unknown senders are flagged as HIGH RISK.
                 </Text>
               </Text>
@@ -458,6 +502,41 @@ export default function ChatbotScreen() {
                   • HISTORY - Recent transactions
                 </Text>
               </Text>
+
+              <Text style={[styles.infoSection, { color: textColor }]}>
+                <Text style={styles.infoTitle}>📝 Example SMS Messages</Text>
+                {'\n\n'}
+                <Text style={{ color: textSecondaryColor }}>
+                  Tap any example below to paste it:
+                </Text>
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.exampleButton, { backgroundColor: isDark ? colors.backgroundDark : '#f5f5f5' }]}
+                onPress={() => handlePasteExample('0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23.')}
+              >
+                <Text style={[styles.exampleText, { color: textColor }]}>
+                  📥 Received Money Example
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.exampleButton, { backgroundColor: isDark ? colors.backgroundDark : '#f5f5f5' }]}
+                onPress={() => handlePasteExample('0000011656836069 Confirmed. GHS20.50 sent to 0241037421 DORCAS JATO on MTN MOBILE MONEY on 2026-01-04 at 23:10:28. Your Telecel Cash balance is GHS0.53. You were charged GHS0.00. Your E-levy charge is GHS0.00.')}
+              >
+                <Text style={[styles.exampleText, { color: textColor }]}>
+                  📤 Sent Money Example
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.exampleButton, { backgroundColor: isDark ? colors.backgroundDark : '#f5f5f5' }]}
+                onPress={() => handlePasteExample('Cash Out made for GHS35.00 to KEK FOOD VENDOR AND COSMETICS. Current Balance: GHS18.12 Financial Transaction Id: 75238622739.Fee charged: GHS0.50.')}
+              >
+                <Text style={[styles.exampleText, { color: textColor }]}>
+                  💵 Cash Out Example
+                </Text>
+              </TouchableOpacity>
 
               <Text style={[styles.infoSection, { color: textColor }]}>
                 <Text style={styles.infoTitle}>🔒 Privacy Guarantee</Text>
@@ -628,6 +707,15 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontWeight: '700',
     fontSize: 16,
+  },
+  exampleButton: {
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  exampleText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalButton: {
     marginTop: 16,
