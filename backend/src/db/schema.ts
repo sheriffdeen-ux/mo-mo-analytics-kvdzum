@@ -154,7 +154,7 @@ export const transactions = pgTable(
       enum: ["MTN", "Vodafone", "AirtelTigo", "Telecel Cash", "MTN MOBILE MONEY"],
     }).notNull(),
     transactionType: text("transaction_type", {
-      enum: ["sent", "received", "withdrawal", "deposit", "airtime", "bill_payment", "cash_out"],
+      enum: ["sent", "received", "withdrawal", "deposit", "airtime", "bill_payment", "cash_out", "balance_inquiry", "failed", "promotional", "other"],
     }).notNull(),
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
     recipient: text("recipient"),

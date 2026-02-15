@@ -473,7 +473,39 @@ export async function executeFraudDetectionAnalysis(
   parsed: ParsedTransaction,
   rawSms: string
 ): Promise<FraudDetectionResult> {
-  // Execute all 7 layers
+  // CRITICAL: Non-transactional message types (balance inquiry, failed, promotional, other)
+  // are ALWAYS LOW RISK - they're informational or service messages, not actual transactions
+  if (
+    parsed.type === "balance_inquiry" ||
+    parsed.type === "failed" ||
+    parsed.type === "promotional" ||
+    parsed.type === "other"
+  ) {
+    return {
+      riskScore: 0,
+      riskLevel: "LOW",
+      riskFactors: [],
+      layerAnalysis: {
+        layer1: { status: "PASS", senderIdValid: true, senderIdScore: 0, extractedFields: {} as any },
+        layer2: { status: "PASS", validationErrors: [] },
+        layer3: {
+          scamKeywordCount: 0,
+          scamKeywordScore: 0,
+          fakeInstitutionScore: 0,
+          suspiciousPhraseScore: 0,
+          totalPatternScore: 0,
+        },
+        layer4: { averageTransactionAmount: null, anomalyScore: 0, frequencyScore: 0, anomalyFactors: [] },
+        layer5: { velocityScore: 0, velocityFactors: [] },
+        layer6: { amountScore: 0, roundAmountBonus: 0, totalAmountScore: 0 },
+        layer7: { timeScore: 0, dayScore: 0, totalTemporalScore: 0, temporalFactors: [] },
+      },
+      shouldAlert: false,
+      recommendedActions: [],
+    };
+  }
+
+  // Execute all 7 layers for actual transactions
   const layer1 = layer1_senderVerification(parsed, rawSms);
   const layer2 = layer2_inputValidation(parsed);
   const layer3 = layer3_patternRecognition(rawSms);
@@ -522,8 +554,13 @@ export async function executeFraudDetectionAnalysis(
   // Cap total score
   totalScore = Math.min(100, totalScore);
 
+  // CRITICAL: Airtime purchases and bill payments from known providers are ALWAYS LOW RISK
+  // These are low-risk transaction types
+  if ((parsed.type === "airtime" || parsed.type === "bill_payment") && layer1.senderIdValid) {
+    totalScore = Math.max(0, Math.min(20, totalScore));
+  }
   // Special case: Legitimate known providers with no fraud indicators default to LOW
-  if (
+  else if (
     layer1.senderIdValid &&
     layer2.status === "PASS" &&
     layer3.totalPatternScore === 0 &&
