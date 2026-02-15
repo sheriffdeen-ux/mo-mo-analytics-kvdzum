@@ -28,6 +28,15 @@ interface ChatMessage {
   timestamp: Date;
   riskLevel?: string;
   analysis?: any;
+  transactions?: Array<{
+    provider: string;
+    type: string;
+    amount: number;
+    recipient: string;
+    balance?: number;
+    riskScore: number;
+    riskLevel: string;
+  }>;
 }
 
 export default function ChatbotScreen() {
@@ -53,7 +62,7 @@ export default function ChatbotScreen() {
     const welcomeMessage: ChatMessage = {
       id: 'welcome',
       type: 'bot',
-      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our advanced 7-layer security framework with ML-inspired fraud detection.\n\n✅ Supported Providers:\n• MTN MoMo (447, 4255, MTNMoMo)\n• Vodafone Cash (557, VCash)\n• AirtelTigo Money (505, TMoney)\n• Telecel Cash\n\n📋 Supported Transaction Types:\n• Received Money\n• Sent Money\n• Cash Out/Withdrawal\n• Airtime Purchase\n• Bill Payments\n• Balance Inquiry\n• Failed Transactions\n• Promotional Messages\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Commands:\nType any of these commands:\n• HELP - Show all commands\n• TODAY - Today\'s transactions\n• WEEK - This week\'s summary\n• STATS - Transaction statistics\n• HISTORY - Recent transactions\n\n📝 Example SMS:\n"0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23."',
+      content: '👋 Welcome to MoMo Analytics AI Fraud Analyzer!\n\n📱 Paste your MoMo SMS message below and I\'ll analyze it through our advanced 7-layer security framework with ML-inspired fraud detection.\n\n✨ NEW: Multi-Transaction Support!\nI can now analyze SMS messages containing multiple transactions at once. Just paste the entire message and I\'ll break it down for you.\n\n✅ Supported Providers:\n• MTN MoMo (447, 4255, MTNMoMo)\n• Vodafone Cash (557, VCash)\n• AirtelTigo Money (505, TMoney)\n• Telecel Cash\n\n📋 Supported Transaction Types:\n• Received Money\n• Sent Money\n• Cash Out/Withdrawal\n• Airtime Purchase\n• Bill Payments\n• Balance Inquiry\n• Failed Transactions\n• Promotional Messages\n\n🔒 Privacy Guaranteed:\nWe only extract transaction data (amount, recipient, time, reference). Raw SMS messages are never stored.\n\n💡 Commands:\nType any of these commands:\n• HELP - Show all commands\n• TODAY - Today\'s transactions\n• WEEK - This week\'s summary\n• STATS - Transaction statistics\n• HISTORY - Recent transactions\n\n📝 Example SMS:\n"0000012062913379 Confirmed. You have received GHS10.00 from MTN MOBILE MONEY with transaction reference: Transfer From: 233593122760-AJARATU SEIDU on 2026-02-13 at 16:51:59. Your Telecel Cash balance is GHS14.23."',
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
@@ -134,6 +143,17 @@ export default function ChatbotScreen() {
           chatbotReply?: string;
           reply?: string;
           transaction?: any;
+          transactions?: Array<{
+            provider: string;
+            type: string;
+            amount: number;
+            recipient: string;
+            balance?: number;
+            riskScore: number;
+            riskLevel: string;
+          }>;
+          summary?: string;
+          overallRiskLevel?: string;
           analysis?: any;
           error?: string;
           details?: any;
@@ -162,13 +182,44 @@ export default function ChatbotScreen() {
           return;
         }
 
+        // Handle multi-transaction response
+        const hasMultipleTransactions = response.transactions && response.transactions.length > 1;
+        
+        let botContent = response.chatbotReply || response.reply || 'Analysis complete.';
+        
+        // If we have multiple transactions, format them nicely
+        if (hasMultipleTransactions && response.transactions) {
+          botContent = `📊 Multi-Transaction SMS Detected\n\n`;
+          botContent += `Found ${response.transactions.length} transactions:\n\n`;
+          
+          response.transactions.forEach((tx, index) => {
+            const txNumber = index + 1;
+            const riskEmoji = tx.riskLevel === 'LOW' ? '✅' : 
+                             tx.riskLevel === 'MEDIUM' ? '⚠️' : 
+                             tx.riskLevel === 'HIGH' ? '🚨' : '🔴';
+            
+            botContent += `${txNumber}. ${tx.provider} - ${tx.type}\n`;
+            botContent += `   Amount: GHS ${tx.amount.toFixed(2)}\n`;
+            botContent += `   Recipient: ${tx.recipient}\n`;
+            if (tx.balance !== undefined) {
+              botContent += `   Balance: GHS ${tx.balance.toFixed(2)}\n`;
+            }
+            botContent += `   ${riskEmoji} Risk: ${tx.riskLevel} (${tx.riskScore}/100)\n\n`;
+          });
+          
+          if (response.summary) {
+            botContent += `\n📋 Summary: ${response.summary}`;
+          }
+        }
+
         const botMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           type: 'bot',
-          content: response.chatbotReply || response.reply || 'Analysis complete.',
+          content: botContent,
           timestamp: new Date(),
-          riskLevel: response.analysis?.riskLevel,
+          riskLevel: response.overallRiskLevel || response.analysis?.riskLevel,
           analysis: response.analysis,
+          transactions: response.transactions,
         };
 
         setMessages(prev => [...prev, botMessage]);
@@ -315,6 +366,56 @@ export default function ChatbotScreen() {
                   >
                     {message.content}
                   </Text>
+
+                  {/* Show transaction cards for multi-transaction messages */}
+                  {!isUser && message.transactions && message.transactions.length > 1 && (
+                    <View style={styles.transactionsContainer}>
+                      {message.transactions.map((tx, idx) => {
+                        const txRiskColor = tx.riskLevel === 'LOW' ? colors.riskLow :
+                                           tx.riskLevel === 'MEDIUM' ? colors.riskMedium :
+                                           tx.riskLevel === 'HIGH' ? colors.riskHigh :
+                                           colors.riskCritical;
+                        
+                        return (
+                          <View
+                            key={idx}
+                            style={[
+                              styles.transactionCard,
+                              {
+                                backgroundColor: isDark ? colors.backgroundDark : '#f5f5f5',
+                                borderLeftColor: txRiskColor,
+                              },
+                            ]}
+                          >
+                            <View style={styles.transactionHeader}>
+                              <Text style={[styles.transactionNumber, { color: textColor }]}>
+                                #{idx + 1}
+                              </Text>
+                              <View style={[styles.transactionRiskBadge, { backgroundColor: txRiskColor }]}>
+                                <Text style={styles.transactionRiskText}>
+                                  {tx.riskLevel}
+                                </Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.transactionProvider, { color: textColor }]}>
+                              {tx.provider} - {tx.type}
+                            </Text>
+                            <Text style={[styles.transactionAmount, { color: colors.primary }]}>
+                              GHS {tx.amount.toFixed(2)}
+                            </Text>
+                            <Text style={[styles.transactionRecipient, { color: textSecondaryColor }]}>
+                              To: {tx.recipient}
+                            </Text>
+                            {tx.balance !== undefined && (
+                              <Text style={[styles.transactionBalance, { color: textSecondaryColor }]}>
+                                Balance: GHS {tx.balance.toFixed(2)}
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
 
                   {message.riskLevel && (
                     <View style={[styles.riskBadge, { backgroundColor: riskColor }]}>
@@ -538,6 +639,15 @@ export default function ChatbotScreen() {
                 </Text>
               </TouchableOpacity>
 
+              <TouchableOpacity
+                style={[styles.exampleButton, { backgroundColor: isDark ? colors.backgroundDark : '#f5f5f5' }]}
+                onPress={() => handlePasteExample('Your payment of GHS 3.00 to MTN AIRTIME has been completed at 2026-02-13 07:48:47. Your new balance: GHS 84.00. Fee was GHS 0.00 Tax was GHS -. Reference: -. Financial Transaction Id: 75149483211.Cash Out made for GHS35.00 to KEK FOOD VENDOR AND COSMETICS. Current Balance: GHS18.12 Financial Transaction Id: 75238622739. Fee charged: GHS0.50.Payment for GHS1.00 to MTN BUNDLE .Current Balance: GHS 88.00. Transaction Id: 75142267823.')}
+              >
+                <Text style={[styles.exampleText, { color: textColor }]}>
+                  📊 Multi-Transaction Example (3 transactions)
+                </Text>
+              </TouchableOpacity>
+
               <Text style={[styles.infoSection, { color: textColor }]}>
                 <Text style={styles.infoTitle}>🔒 Privacy Guarantee</Text>
                 {'\n\n'}
@@ -726,5 +836,51 @@ const styles = StyleSheet.create({
   modalButtonText: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  transactionsContainer: {
+    marginTop: 12,
+    gap: 8,
+  },
+  transactionCard: {
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  transactionNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  transactionRiskBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  transactionRiskText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  transactionProvider: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  transactionAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  transactionRecipient: {
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  transactionBalance: {
+    fontSize: 12,
   },
 });
