@@ -178,12 +178,21 @@ export function layer3_nlpAnalysis(
     smsUpper.includes(keyword.toUpperCase())
   );
 
-  // Legitimate MoMo messages shouldn't have these keywords
-  const hasScamKeywords = detectedKeywords.length > 0;
+  // For legitimate MoMo messages from known providers, NLP score should be minimal
+  // Only flag if multiple scam keywords are detected
+  const knownProviders = ["Telecel Cash", "MTN MOBILE MONEY", "Vodafone", "AirtelTigo", "MTN", "Vodafone Cash", "AirtelTigo Money"];
+  const isKnownProvider = parsed.provider && knownProviders.some(p => parsed.provider?.includes(p));
 
-  // However, legitimate Telecel/MTN messages with proper provider validation are low-risk
-  // Only flag if provider is NOT recognized or multiple scam keywords present
-  const nlpScore = hasScamKeywords && !parsed.provider ? Math.min(100, detectedKeywords.length * 20) : 0;
+  // NLP scoring: Penalize only if multiple keywords AND unknown provider, or multiple keywords for any provider
+  let nlpScore = 0;
+  if (detectedKeywords.length > 2) {
+    // Multiple keywords = always suspicious
+    nlpScore = Math.min(100, detectedKeywords.length * 15);
+  } else if (detectedKeywords.length > 0 && !isKnownProvider) {
+    // Single keyword + unknown provider = slightly suspicious
+    nlpScore = 20;
+  }
+  // Legitimate known providers with 0-1 keywords = 0 score
 
   // Sentiment analysis (simple heuristic)
   let sentiment: "positive" | "neutral" | "negative" = "neutral";
@@ -324,14 +333,20 @@ export function layer5_riskScoring(
       breakdown.nlpScore
   );
 
-  // Apply provider validation: Legitimate known providers should NOT trigger high risk by default
-  // Only if there are specific fraud indicators
-  if (parsed.provider && !layer3.suspiciousPatterns.length) {
-    // Reduce score for legitimate providers with no suspicious patterns
-    totalScore = Math.max(0, totalScore - 20);
+  // Key principle: Legitimate MoMo transactions from known providers default to LOW RISK
+  // Only flag as higher risk if there are SPECIFIC fraud indicators
+  const knownProviders = ["Telecel Cash", "MTN MOBILE MONEY", "Vodafone", "AirtelTigo", "MTN", "Vodafone Cash", "AirtelTigo Money"];
+  const isKnownProvider = parsed.provider && knownProviders.some(p => parsed.provider?.includes(p));
+
+  // For legitimate providers with no suspicious patterns, cap score at 20 (LOW RISK)
+  if (isKnownProvider && !layer3.suspiciousPatterns.length && breakdown.nlpScore < 20) {
+    totalScore = Math.min(20, totalScore);
+  } else if (isKnownProvider && layer3.suspiciousPatterns.length < 2) {
+    // Known provider with minor suspicious patterns - cap at 40 (MEDIUM)
+    totalScore = Math.min(40, totalScore);
   }
 
-  // Determine risk level
+  // Determine risk level based on score
   let riskLevel: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   if (totalScore < 30) {
     riskLevel = "LOW";
