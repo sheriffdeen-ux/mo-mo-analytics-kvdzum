@@ -4,6 +4,7 @@ import * as authSchema from './db/auth-schema.js';
 
 // Import route registration functions
 import { registerTransactionRoutes } from './routes/transactions.js';
+import { registerTransactionsImportRoutes } from './routes/transactions-import.js';
 import { registerSettingsRoutes } from './routes/settings.js';
 import { registerAnalyticsRoutes } from './routes/analytics.js';
 import { registerAdminRoutes } from './routes/admin.js';
@@ -51,6 +52,7 @@ registerAuthRoutes(app, app.fastify);
 registerUserRoutes(app, app.fastify);
 registerSubscriptionRoutes(app, app.fastify);
 registerTransactionRoutes(app, app.fastify);
+registerTransactionsImportRoutes(app, app.fastify);
 registerSettingsRoutes(app, app.fastify);
 registerAnalyticsRoutes(app, app.fastify);
 registerAdminRoutes(app, app.fastify);
