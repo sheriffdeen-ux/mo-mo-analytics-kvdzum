@@ -107,11 +107,12 @@ export default function ProfileScreen() {
   const saveSettings = async () => {
     setLoading(true);
     try {
-      const { authenticatedPost } = await import('@/utils/api');
-      await authenticatedPost('/api/update-settings', settings);
+      const { authenticatedPut } = await import('@/utils/api');
+      await authenticatedPut('/api/settings', settings);
       console.log("[Profile] Settings saved successfully");
     } catch (error) {
       console.error("[Profile] Failed to save settings:", error);
+      alert('Failed to save settings. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -350,6 +351,32 @@ export default function ProfileScreen() {
               </Text>
               <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
                 Unlock premium features
+              </Text>
+            </View>
+            <IconSymbol
+              ios_icon_name="chevron.right"
+              android_material_icon_name="chevron-right"
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => router.push("/sms-import")}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.down.doc.fill"
+              android_material_icon_name="file-download"
+              size={24}
+              color={colors.primary}
+            />
+            <View style={styles.menuTextContainer}>
+              <Text style={[styles.menuTitle, { color: textColor }]}>
+                SMS Transaction Import
+              </Text>
+              <Text style={[styles.menuSubtitle, { color: textSecondary }]}>
+                User-triggered, privacy-focused
               </Text>
             </View>
             <IconSymbol

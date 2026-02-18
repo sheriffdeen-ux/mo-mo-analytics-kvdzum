@@ -421,6 +421,33 @@ export default function SecurityDashboardScreen() {
           )}
         </View>
 
+        {/* Import Transactions Button */}
+        <TouchableOpacity
+          style={[styles.importButton, { backgroundColor: colors.primary }]}
+          onPress={() => router.push('/sms-import')}
+        >
+          <IconSymbol
+            ios_icon_name="arrow.down.doc.fill"
+            android_material_icon_name="file-download"
+            size={32}
+            color="#fff"
+          />
+          <View style={styles.importButtonTextContainer}>
+            <Text style={styles.importButtonTitle}>
+              Import Transactions
+            </Text>
+            <Text style={styles.importButtonSubtitle}>
+              Scan your SMS for MoMo transactions
+            </Text>
+          </View>
+          <IconSymbol
+            ios_icon_name="chevron.right"
+            android_material_icon_name="chevron-right"
+            size={24}
+            color="#fff"
+          />
+        </TouchableOpacity>
+
         {/* Quick Actions */}
         <View style={styles.actionsGrid}>
           <TouchableOpacity
@@ -643,6 +670,27 @@ const styles = StyleSheet.create({
   },
   passRateText: {
     fontSize: 12,
+  },
+  importButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    gap: 16,
+  },
+  importButtonTextContainer: {
+    flex: 1,
+  },
+  importButtonTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  importButtonSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   actionsGrid: {
     flexDirection: 'row',

@@ -62,16 +62,19 @@ export default function PrivacyPolicyScreen() {
           </Text>
           
           <Text style={[styles.subsectionTitle, { color: textColor }]}>
-            2.1 SMS Transaction Data
+            2.1 SMS Transaction Data (User-Triggered Only)
           </Text>
           <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
-            With your explicit consent, we access and analyze SMS messages from Mobile Money providers (MTN MoMo, Vodafone Cash, AirtelTigo Money) to extract transaction information including:
+            IMPORTANT: We ONLY access SMS when YOU explicitly tap "Import Transactions". There is NO automatic background scanning, NO continuous monitoring, and NO silent SMS forwarding.
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            When you trigger an import, we scan ONLY Mobile Money SMS from known providers (MTN MoMo, Vodafone Cash, Telecel, AirtelTigo Money) and extract:
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
             • Transaction amount (GHS)
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
-            • Recipient phone number
+            • Recipient phone number or merchant name
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
             • Transaction timestamp
@@ -80,10 +83,13 @@ export default function PrivacyPolicyScreen() {
             • Transaction reference number
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
-            • Account balance
+            • Account balance (if available)
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Transaction type (credit, debit, cash out, airtime, bill payment)
           </Text>
           <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
-            Important: We do NOT store raw SMS message content. Only extracted transaction data is retained for fraud analysis.
+            CRITICAL: We do NOT store raw SMS message content on our servers. Only structured transaction data (amount, date, type, reference) is sent to our backend for fraud analysis. Personal conversations are NEVER accessed.
           </Text>
 
           <Text style={[styles.subsectionTitle, { color: textColor }]}>
@@ -220,22 +226,40 @@ export default function PrivacyPolicyScreen() {
 
         <View style={[styles.card, { backgroundColor: cardColor }]}>
           <Text style={[styles.sectionTitle, { color: textColor }]}>
-            7. SMS Permissions
+            7. SMS Permissions (READ_SMS Only, User-Triggered)
           </Text>
           <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
-            SMS access is OPTIONAL and requires your explicit consent. You can:
+            We request READ_SMS permission (NOT RECEIVE_SMS) to enable user-triggered transaction imports. This means:
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
-            • Enable/disable SMS auto-detection in Settings
+            • NO background SMS listeners or receivers
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
-            • Choose which SMS providers to monitor
+            • NO automatic forwarding of messages
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • NO continuous monitoring of your inbox
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • We ONLY scan when you tap "Import Transactions"
+          </Text>
+          <Text style={[styles.paragraph, { color: textSecondaryColor }]}>
+            You have full control:
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Enable/disable SMS import at any time
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • View import statistics and transparency reports
+          </Text>
+          <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
+            • Delete imported transaction data
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
             • Manually paste SMS messages for analysis instead
           </Text>
           <Text style={[styles.bulletPoint, { color: textSecondaryColor }]}>
-            • Revoke SMS permissions at any time through device settings
+            • Revoke SMS permissions through device settings
           </Text>
         </View>
 
