@@ -64,6 +64,13 @@
       "when": 1771118195054,
       "tag": "20260215011635_dazzling_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771414606425,
+      "tag": "20260218113646_quick_scalphunter",
+      "breakpoints": true
     }
   ]
 }

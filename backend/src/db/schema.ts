@@ -40,6 +40,9 @@ export const userExtended = pgTable("user_extended", {
   reportedFraudCount: integer("reported_fraud_count").default(0),
   smsConsentGiven: boolean("sms_consent_given").default(false),
   smsAutoDetectionEnabled: boolean("sms_auto_detection_enabled").default(false),
+  smsImportEnabled: boolean("sms_import_enabled").default(false), // User-triggered SMS import
+  lastSmsImportAt: timestamp("last_sms_import_at", { withTimezone: true }), // Last manual import
+  totalSmsImports: integer("total_sms_imports").default(0), // Count of import operations
   pin: text("pin"), // Hashed PIN for new device verification
   requiresPinOnNewDevice: boolean("requires_pin_on_new_device").default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -186,11 +189,17 @@ export const transactions = pgTable(
     layer6AlertLevel: text("layer6_alert_level"), // CRITICAL/HIGH/MEDIUM/LOW
     layer6AlertSentAt: timestamp("layer6_alert_sent_at", { withTimezone: true }), // Alert timestamp
     layer7AuditTrail: jsonb("layer7_audit_trail").$type<Record<string, any>>(), // Audit trail
+    // Import tracking fields
+    importSource: text("import_source", {
+      enum: ["manual", "sms_import", "chatbot"],
+    }).default("chatbot"), // Source of transaction import
+    importedAt: timestamp("imported_at", { withTimezone: true }), // When batch import occurred
   },
   (table) => [
     index("idx_transactions_user_id").on(table.userId),
     index("idx_transactions_created_at").on(table.createdAt),
     index("idx_transactions_risk_level").on(table.riskLevel),
+    index("idx_transactions_import_source").on(table.importSource),
   ]
 );
 
