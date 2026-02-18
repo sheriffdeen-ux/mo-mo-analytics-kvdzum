@@ -86,29 +86,17 @@ export function registerChatbotAnalyzeRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   // POST /api/chatbot/analyze-sms-legacy
   // Legacy endpoint - use /api/chatbot/analyze-sms for new Telecel-optimized version
   fastify.post(
     "/api/chatbot/analyze-sms-legacy",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       const body = request.body as {
         smsMessage: string;
@@ -157,7 +145,7 @@ export function registerChatbotAnalyzeRoutes(
           .insert(schema.transactions)
           .values({
             userId,
-            rawSms: body.smsMessage,
+            rawSms: "[REDACTED]",
             provider: parsed.provider || "MTN",
             transactionType: (parsed.type as any) || "received",
             amount: (parsed.amount || 0).toString(),
@@ -170,7 +158,7 @@ export function registerChatbotAnalyzeRoutes(
               (key) => analysis.layer5.breakdown[key as keyof typeof analysis.layer5.breakdown] > 0
             ),
             // Store 7-layer data
-            layer1SmsRaw: body.smsMessage,
+            layer1SmsRaw: "[REDACTED]",
             layer2ValidationStatus: analysis.layer2.status,
             layer3NlpScore: analysis.layer3.nlpScore.toString(),
             layer3ScamKeywords: analysis.layer3.scamKeywords,

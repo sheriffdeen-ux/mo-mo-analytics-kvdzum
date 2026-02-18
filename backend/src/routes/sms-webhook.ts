@@ -58,7 +58,7 @@ export function registerSmsWebhookRoutes(
           .insert(schema.transactions)
           .values({
             userId,
-            rawSms: body.smsMessage,
+            rawSms: "[REDACTED]",
             provider: parsed.provider || "MTN",
             transactionType: (parsed.type as any) || "received",
             amount: (parsed.amount || 0).toString(),
@@ -69,7 +69,7 @@ export function registerSmsWebhookRoutes(
             riskLevel: analysis.layer5.riskLevel,
             riskReasons: analysis.layer5.riskLevel !== "LOW" ? [analysis.layer4.anomalyReason || "Fraud detected"].filter(Boolean) : [],
             // Store 7-layer data
-            layer1SmsRaw: body.smsMessage,
+            layer1SmsRaw: "[REDACTED]",
             layer2ValidationStatus: analysis.layer2.status,
             layer3NlpScore: analysis.layer3.nlpScore.toString(),
             layer3ScamKeywords: analysis.layer3.scamKeywords,

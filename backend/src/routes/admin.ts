@@ -2,17 +2,14 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { eq, sum, count as countFn } from "drizzle-orm";
 import * as schema from "../db/schema.js";
 import type { App } from "../index.js";
+import { requireAdmin } from "../utils/admin-auth.js";
 
 export function registerAdminRoutes(app: App, fastify: FastifyInstance) {
-  const requireAuth = app.requireAuth();
-
   // GET /api/admin/users - Get list of users with activity stats (admin only)
   fastify.get("/api/admin/users", async (request: FastifyRequest, reply: FastifyReply) => {
-    const session = await requireAuth(request, reply);
+    const session = await requireAdmin(app, request, reply);
     if (!session) return;
 
-    // Note: In a full implementation, check for admin role
-    // For now, we'll allow any authenticated user
     app.logger.info({ userId: session.user.id }, "Fetching admin users list");
 
     try {
@@ -64,10 +61,9 @@ export function registerAdminRoutes(app: App, fastify: FastifyInstance) {
 
   // GET /api/admin/dashboard - Get admin dashboard stats
   fastify.get("/api/admin/dashboard", async (request: FastifyRequest, reply: FastifyReply) => {
-    const session = await requireAuth(request, reply);
+    const session = await requireAdmin(app, request, reply);
     if (!session) return;
 
-    // Note: In a full implementation, check for admin role
     app.logger.info({ userId: session.user.id }, "Fetching admin dashboard");
 
     try {

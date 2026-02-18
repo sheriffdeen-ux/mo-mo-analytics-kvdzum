@@ -91,6 +91,8 @@ export function registerTransactionsImportRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   /**
    * POST /api/transactions/import-batch
    * Import structured transaction data (not raw SMS)
@@ -98,26 +100,10 @@ export function registerTransactionsImportRoutes(
   fastify.post(
     "/api/transactions/import-batch",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        app.logger.warn({}, "Transaction import attempted without auth");
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        app.logger.warn({}, "Transaction import attempted with invalid token");
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const body = request.body as { transactions?: unknown[] };
 
       if (!Array.isArray(body.transactions)) {
@@ -226,7 +212,7 @@ export function registerTransactionsImportRoutes(
             .insert(schema.transactions)
             .values({
               userId,
-              rawSms: pseudoParsed.rawSms,
+              rawSms: "[REDACTED]",
               provider: mapProvider(txnData.senderId),
               transactionType: mapTransactionType(txnData.type) as any,
               amount: txnData.amount.toString(),
@@ -236,7 +222,7 @@ export function registerTransactionsImportRoutes(
               riskScore: analysis.riskScore,
               riskLevel: analysis.riskLevel,
               riskReasons: analysis.riskFactors,
-              layer1SmsRaw: pseudoParsed.rawSms,
+              layer1SmsRaw: "[REDACTED]",
               layer2ValidationStatus: analysis.layerAnalysis.layer2.status,
               layer3NlpScore: analysis.layerAnalysis.layer3.totalPatternScore.toString() as any,
               layer4VelocityScore: analysis.layerAnalysis.layer4.anomalyScore.toString() as any,
@@ -348,24 +334,10 @@ export function registerTransactionsImportRoutes(
   fastify.get(
     "/api/transactions/import-stats",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       app.logger.info({ userId }, "Fetching import statistics");
 
@@ -431,24 +403,10 @@ export function registerTransactionsImportRoutes(
   fastify.put(
     "/api/transactions/settings",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const body = request.body as { smsImportEnabled?: boolean };
 
       app.logger.info(

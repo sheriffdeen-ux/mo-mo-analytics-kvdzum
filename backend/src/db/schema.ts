@@ -45,6 +45,7 @@ export const userExtended = pgTable("user_extended", {
   totalSmsImports: integer("total_sms_imports").default(0), // Count of import operations
   pin: text("pin"), // Hashed PIN for new device verification
   requiresPinOnNewDevice: boolean("requires_pin_on_new_device").default(false),
+  role: text("role").default("user").notNull(), // user, admin
   createdAt: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

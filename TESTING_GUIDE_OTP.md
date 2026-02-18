@@ -145,7 +145,7 @@ Expected: "Too many OTP requests. Please try again in 1 hour."
 ```typescript
 // In app.json
 "extra": {
-  "arkeselApiKey": "TkpKcE5QQ09PREN1dFBOWUV1eGQ"
+  "arkeselApiKey": "[REDACTED]"
 }
 ```
 

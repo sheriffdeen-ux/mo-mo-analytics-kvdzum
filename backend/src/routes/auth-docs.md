@@ -6,7 +6,7 @@ MoMo Analytics implements SMS-based OTP authentication for Ghana phone numbers u
 ## SMS Gateway Integration
 - **Provider**: Arkesel SMS Gateway
 - **API Endpoint**: https://sms.arkesel.com/api/v2/sms/send
-- **API Key**: TkpKcE5QQ09PREN1dFBOWUV1eGQ
+- **API Key**: [REDACTED] (Set via ARKESEL_API_KEY environment variable)
 - **Message Format**: Custom messages with OTP code embedded
 - **Delivery**: Immediate delivery within seconds
 

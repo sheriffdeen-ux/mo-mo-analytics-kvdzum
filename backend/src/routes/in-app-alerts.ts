@@ -7,28 +7,16 @@ export function registerInAppAlertsRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   // GET /api/alerts/in-app
   fastify.get(
     "/api/alerts/in-app",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       const query = request.query as {
         page?: string;
@@ -120,24 +108,10 @@ export function registerInAppAlertsRoutes(
   fastify.put(
     "/api/alerts/in-app/:alertId/read",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const { alertId } = request.params as { alertId: string };
 
       app.logger.info({ userId, alertId }, "Marking alert as read");
@@ -189,24 +163,10 @@ export function registerInAppAlertsRoutes(
   fastify.put(
     "/api/alerts/in-app/:alertId/dismiss",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const { alertId } = request.params as { alertId: string };
 
       app.logger.info({ userId, alertId }, "Dismissing alert");
@@ -249,24 +209,10 @@ export function registerInAppAlertsRoutes(
   fastify.post(
     "/api/alerts/in-app/:alertId/action",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const { alertId } = request.params as { alertId: string };
 
       const body = request.body as {

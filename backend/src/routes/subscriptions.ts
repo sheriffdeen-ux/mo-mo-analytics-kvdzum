@@ -109,7 +109,7 @@ const SUBSCRIPTION_PLANS = {
   },
 };
 
-const PAYSTACK_SECRET_KEY = "sk_live_11dc621fcdffc09bbd9281145a03c4dc6fea6224";
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || "";
 const PAYSTACK_API_URL = "https://api.paystack.co";
 
 export function registerSubscriptionRoutes(app: App, fastify: FastifyInstance) {

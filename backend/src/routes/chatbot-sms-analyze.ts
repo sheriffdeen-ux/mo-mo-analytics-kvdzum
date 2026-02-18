@@ -43,30 +43,16 @@ export function registerChatbotSmsAnalyzeRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   // POST /api/chatbot/sms/analyze
   fastify.post(
     "/api/chatbot/sms/analyze",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        app.logger.warn({}, "SMS chatbot analysis attempted without auth");
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        app.logger.warn({}, "SMS chatbot analysis attempted with invalid token");
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       const body = request.body as {
         smsMessage: string;
@@ -101,7 +87,7 @@ export function registerChatbotSmsAnalyzeRoutes(
             error: "This doesn't appear to be a MoMo transaction SMS",
             details: {
               parseErrors: parsed.parseErrors,
-              rawSms: body.smsMessage,
+              rawSms: "[REDACTED]",
             },
           });
         }
@@ -133,7 +119,7 @@ export function registerChatbotSmsAnalyzeRoutes(
           .insert(schema.transactions)
           .values({
             userId,
-            rawSms: body.smsMessage,
+            rawSms: "[REDACTED]",
             provider: (parsed.provider || "MTN") as any,
             transactionType: transactionTypeValue,
             amount: (parsed.amount || 0).toString(),
@@ -149,7 +135,7 @@ export function registerChatbotSmsAnalyzeRoutes(
                 ] > 0
             ),
             // Store 7-layer data
-            layer1SmsRaw: body.smsMessage,
+            layer1SmsRaw: "[REDACTED]",
             layer2ValidationStatus: analysis.layer2.status,
             layer3NlpScore: analysis.layer3.nlpScore.toString(),
             layer3ScamKeywords: analysis.layer3.scamKeywords,
@@ -257,25 +243,10 @@ export function registerChatbotSmsAnalyzeRoutes(
   fastify.get(
     "/api/chatbot/sms/transaction-history",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        app.logger.warn({}, "Transaction history requested without auth");
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const page = Math.max(1, parseInt((request.query as any).page) || 1);
       const limit = Math.min(100, parseInt((request.query as any).limit) || 20);
       const offset = (page - 1) * limit;
@@ -349,24 +320,10 @@ export function registerChatbotSmsAnalyzeRoutes(
   fastify.get(
     "/api/chatbot/sms/transaction/:transactionId",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const transactionId = (request.params as any).transactionId;
 
       app.logger.info(

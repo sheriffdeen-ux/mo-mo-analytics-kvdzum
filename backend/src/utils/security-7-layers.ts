@@ -621,7 +621,9 @@ export async function executeSecurityAnalysis(
   try {
     // Layer 1: SMS Capture
     const layer1 = layer1_smsCaptureAndParsing(smsMessage);
-    await logSecurityLayer(app, userId, transactionId, 1, layer1.status === "PASS" ? "PASS" : "FAIL", 0, { parser_result: layer1 }, logger);
+    // Redact raw data for logging
+    const redactedLayer1 = { ...layer1, rawData: "[REDACTED]" };
+    await logSecurityLayer(app, userId, transactionId, 1, layer1.status === "PASS" ? "PASS" : "FAIL", 0, { parser_result: redactedLayer1 }, logger);
 
     // Layer 2: Input Validation
     const layer2 = layer2_inputValidation(layer1);

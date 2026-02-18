@@ -2,23 +2,20 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { eq } from "drizzle-orm";
 import * as schema from "../db/schema.js";
 import type { App } from "../index.js";
+import { requireAdmin } from "../utils/admin-auth.js";
 
 export function registerRiskPatternsRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   // GET /api/risk-patterns
   fastify.get(
     "/api/risk-patterns",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
-
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
       app.logger.info({}, "Fetching risk patterns");
 
@@ -51,14 +48,8 @@ export function registerRiskPatternsRoutes(
   fastify.post(
     "/api/risk-patterns",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
-
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
+      const session = await requireAdmin(app, request, reply);
+      if (!session) return;
 
       const body = request.body as {
         patternType:
