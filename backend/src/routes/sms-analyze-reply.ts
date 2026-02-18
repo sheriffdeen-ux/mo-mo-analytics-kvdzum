@@ -123,29 +123,16 @@ export function registerSmsAnalyzeReplyRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   // POST /api/sms/analyze-and-reply
   fastify.post(
     "/api/sms/analyze-and-reply",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      // Extract userId from token
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       const body = request.body as {
         transactionId: string;

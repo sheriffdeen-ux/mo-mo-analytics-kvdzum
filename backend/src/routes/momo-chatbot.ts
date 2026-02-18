@@ -10,6 +10,8 @@ export function registerMomoChatbotRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   /**
    * POST /api/chatbot/sms/analyze
    * Analyze SMS message using 7-layer fraud detection framework
@@ -17,26 +19,10 @@ export function registerMomoChatbotRoutes(
   fastify.post(
     "/api/chatbot/sms/analyze",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        app.logger.warn({}, "SMS analysis attempted without auth");
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        app.logger.warn({}, "SMS analysis attempted with invalid token");
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const body = request.body as { smsMessage: string };
 
       if (!body.smsMessage || typeof body.smsMessage !== "string") {
@@ -68,7 +54,7 @@ export function registerMomoChatbotRoutes(
             error:
               "This doesn't appear to be from a known MoMo provider (MTN, Vodafone, Telecel, AirtelTigo). Please paste a valid MoMo SMS.",
             details: {
-              rawSms: body.smsMessage,
+              rawSms: "[REDACTED]",
             },
           });
         }
@@ -110,7 +96,7 @@ export function registerMomoChatbotRoutes(
               "This doesn't appear to be a valid MoMo transaction SMS",
             details: {
               parseErrors: parsed.parseErrors,
-              rawSms: body.smsMessage,
+              rawSms: "[REDACTED]",
             },
           });
         }
@@ -137,7 +123,7 @@ export function registerMomoChatbotRoutes(
           .insert(schema.transactions)
           .values({
             userId,
-            rawSms: body.smsMessage,
+            rawSms: "[REDACTED]",
             provider: providerValue,
             transactionType: transactionTypeValue,
             amount: (parsed.amount || 0).toString(),
@@ -158,7 +144,7 @@ export function registerMomoChatbotRoutes(
             riskScore: analysis.riskScore,
             riskLevel: (analysis.riskLevel as any) || "LOW",
             riskReasons: analysis.riskFactors,
-            layer1SmsRaw: body.smsMessage,
+            layer1SmsRaw: "[REDACTED]",
             layer2ValidationStatus: analysis.layerAnalysis.layer2.status,
             layer3NlpScore: analysis.layerAnalysis.layer3.totalPatternScore.toString() as any,
             layer3ScamKeywords: analysis.layerAnalysis.layer3.scamKeywordCount > 0
@@ -267,24 +253,10 @@ export function registerMomoChatbotRoutes(
   fastify.post(
     "/api/chatbot/command",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const body = request.body as { command: string; args?: string };
 
       const command = body.command?.toUpperCase() || "";
@@ -355,24 +327,10 @@ Just forward your MoMo SMS to analyze for fraud risk!
   fastify.get(
     "/api/chatbot/stats",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       app.logger.info({ userId }, "Fetching user statistics");
 
@@ -432,24 +390,10 @@ Just forward your MoMo SMS to analyze for fraud risk!
   fastify.put(
     "/api/chatbot/settings",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const body = request.body as {
         dailySpendingLimit?: number;
         alertsEnabled?: boolean;
@@ -599,7 +543,7 @@ async function handleMultiTransactionSMS(
         .insert(schema.transactions)
         .values({
           userId,
-          rawSms,
+          rawSms: "[REDACTED]",
           provider: providerValue,
           transactionType: transactionTypeValue,
           amount: (txn.amount || 0).toString(),
@@ -609,7 +553,7 @@ async function handleMultiTransactionSMS(
           riskScore: analysis.riskScore,
           riskLevel: analysis.riskLevel,
           riskReasons: analysis.riskFactors,
-          layer1SmsRaw: rawSms,
+          layer1SmsRaw: "[REDACTED]",
           layer2ValidationStatus: analysis.layerAnalysis.layer2.status,
           layer3NlpScore: analysis.layerAnalysis.layer3.totalPatternScore.toString() as any,
           layer4VelocityScore: analysis.layerAnalysis.layer4.anomalyScore.toString() as any,

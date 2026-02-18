@@ -7,29 +7,16 @@ export function registerSmsAutoReplyRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   // GET /api/sms/auto-reply-settings - Get user's auto-reply settings
   fastify.get(
     "/api/sms/auto-reply-settings",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      // Decode token to get userId (simple extraction, assuming format: userId:email:timestamp)
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       app.logger.info({ userId }, "Fetching auto-reply settings");
 
@@ -84,25 +71,10 @@ export function registerSmsAutoReplyRoutes(
   fastify.put(
     "/api/sms/auto-reply-settings",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      // Decode token to get userId
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
 
       const body = request.body as {
         autoReplyEnabled?: boolean;

@@ -48,7 +48,7 @@ The app uses a custom phone number + OTP authentication flow:
    - The `AuthContext` automatically refreshes the user session every 5 minutes to keep the token in sync
 
 ### Arkesel SMS API Configuration
-- **API Key**: `TkpKcE5QQ09PREN1dFBOWUV1eGQ` (configured in `app.json`)
+- **API Key**: `[REDACTED]` (configured in `app.json`)
 - **Endpoint**: `https://sms.arkesel.com/api/v2/sms/send`
 - **SMS Format**: "Your MoMo Analytics verification code is: {OTP}. Valid for 10 minutes. Do not share this code."
 

@@ -160,7 +160,7 @@ All configuration is in `app.json`:
 {
   "extra": {
     "backendUrl": "https://hnexc629pvxz9z3jnx9fzbhvzsfhq7vg.app.specular.dev",
-    "arkeselApiKey": "TkpKcE5QQ09PREN1dFBOWUV1eGQ",
+    "arkeselApiKey": "[REDACTED]",
     "paystackPublicKey": "pk_live_b77def2981f5ddf85b842e00e94ad4171e9641f6"
   }
 }

@@ -12,6 +12,8 @@ export function registerFraudAnalysisRoutes(
   app: App,
   fastify: FastifyInstance
 ) {
+  const requireAuth = app.requireAuth();
+
   /**
    * POST /api/chatbot/analyze-sms
    * Analyze SMS message and return fraud analysis with chatbot reply
@@ -19,26 +21,10 @@ export function registerFraudAnalysisRoutes(
   fastify.post(
     "/api/chatbot/analyze-sms",
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const token = request.headers.authorization?.replace("Bearer ", "");
+      const session = await requireAuth(request, reply);
+      if (!session) return;
 
-      if (!token) {
-        app.logger.warn({}, "SMS analysis attempted without auth");
-        return reply.status(401).send({
-          success: false,
-          error: "Unauthorized",
-        });
-      }
-
-      const tokenParts = token.split(":");
-      if (tokenParts.length < 1) {
-        app.logger.warn({}, "SMS analysis attempted with invalid token");
-        return reply.status(401).send({
-          success: false,
-          error: "Invalid token format",
-        });
-      }
-
-      const userId = tokenParts[0];
+      const userId = session.user.id;
       const body = request.body as {
         smsMessage: string;
       };
@@ -73,7 +59,7 @@ export function registerFraudAnalysisRoutes(
               "This doesn't appear to be a valid MoMo transaction SMS",
             details: {
               parseErrors: parsed.parseErrors,
-              rawSms: body.smsMessage,
+              rawSms: "[REDACTED]",
             },
           });
         }
@@ -95,7 +81,7 @@ export function registerFraudAnalysisRoutes(
           .insert(schema.transactions)
           .values({
             userId,
-            rawSms: body.smsMessage,
+            rawSms: "[REDACTED]",
             provider: providerValue,
             transactionType: transactionTypeValue,
             amount: (parsed.amount || 0).toString(),
@@ -112,7 +98,7 @@ export function registerFraudAnalysisRoutes(
             riskScore: analysis.layer5.riskScore,
             riskLevel: (analysis.layer5.riskLevel as any) || "LOW",
             riskReasons: analysis.layer5.factors,
-            layer1SmsRaw: body.smsMessage,
+            layer1SmsRaw: "[REDACTED]",
             layer2ValidationStatus: analysis.layer2.status,
             layer3NlpScore: analysis.layer3.nlpScore.toString() as any,
             layer3ScamKeywords: analysis.layer3.scamKeywords,

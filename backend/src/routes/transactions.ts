@@ -208,7 +208,7 @@ export function registerTransactionRoutes(app: App, fastify: FastifyInstance) {
         .insert(schema.transactions)
         .values({
           userId: session.user.id,
-          rawSms: body.smsText,
+          rawSms: "[REDACTED]",
           provider: parsed.provider as any,
           transactionType: parsed.transactionType as any,
           amount: String(parsed.amount),
